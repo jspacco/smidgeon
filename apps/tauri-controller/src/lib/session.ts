@@ -1,0 +1,132 @@
+import { supabase } from './supabase'
+import type { CRSQuestion, CRSSession, QuestionType } from '@crs/types'
+
+export function generateQRToken(): string {
+  return crypto.randomUUID()
+}
+
+export async function startSession(courseId: string): Promise<CRSSession> {
+  const { data, error } = await supabase
+    .from('crs_sessions')
+    .insert({
+      course_id: courseId,
+      qr_token: generateQRToken(),
+    })
+    .select()
+    .single()
+
+  if (error) throw new Error(`Failed to start session: ${error.message}`)
+  if (!data) throw new Error('No data returned after starting session')
+  return data as CRSSession
+}
+
+export async function endSession(sessionId: string): Promise<void> {
+  const { error } = await supabase
+    .from('crs_sessions')
+    .update({ ended_at: new Date().toISOString() })
+    .eq('id', sessionId)
+
+  if (error) throw new Error(`Failed to end session: ${error.message}`)
+}
+
+export async function getNextSequenceNumber(sessionId: string): Promise<number> {
+  const { data, error } = await supabase
+    .from('crs_questions')
+    .select('sequence_number')
+    .eq('session_id', sessionId)
+    .order('sequence_number', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) throw new Error(`Failed to get sequence number: ${error.message}`)
+  if (!data) return 1
+  return (data as { sequence_number: number }).sequence_number + 1
+}
+
+export async function launchQuestion(
+  sessionId: string,
+  type: QuestionType,
+  optionCount: number | null,
+  multiAnswer: boolean,
+): Promise<CRSQuestion> {
+  const seq = await getNextSequenceNumber(sessionId)
+
+  const { data, error } = await supabase
+    .from('crs_questions')
+    .insert({
+      session_id: sessionId,
+      sequence_number: seq,
+      type,
+      option_count: type === 'FREE_RESPONSE' ? null : optionCount,
+      multi_answer: multiAnswer,
+      status: 'ACTIVE',
+      launched_at: new Date().toISOString(),
+      results_visible: false,
+    })
+    .select()
+    .single()
+
+  if (error) throw new Error(`Failed to launch question: ${error.message}`)
+  if (!data) throw new Error('No data returned after launching question')
+  return data as CRSQuestion
+}
+
+export async function closeQuestion(questionId: string): Promise<void> {
+  const { data: existing, error: fetchError } = await supabase
+    .from('crs_questions')
+    .select('launched_at')
+    .eq('id', questionId)
+    .single()
+
+  if (fetchError) throw new Error(`Failed to fetch question for closing: ${fetchError.message}`)
+
+  const launchedAt = (existing as { launched_at: string | null }).launched_at
+  const closedAt = new Date()
+  const durationSeconds =
+    launchedAt ? Math.floor((closedAt.getTime() - new Date(launchedAt).getTime()) / 1000) : null
+
+  const { error } = await supabase
+    .from('crs_questions')
+    .update({
+      status: 'CLOSED',
+      closed_at: closedAt.toISOString(),
+      duration_seconds: durationSeconds,
+    })
+    .eq('id', questionId)
+
+  if (error) throw new Error(`Failed to close question: ${error.message}`)
+}
+
+export async function setResultsVisible(questionId: string, visible: boolean): Promise<void> {
+  const { error } = await supabase
+    .from('crs_questions')
+    .update({ results_visible: visible })
+    .eq('id', questionId)
+
+  if (error) throw new Error(`Failed to set results visibility: ${error.message}`)
+}
+
+export async function launchRevote(parent: CRSQuestion): Promise<CRSQuestion> {
+  const seq = await getNextSequenceNumber(parent.session_id)
+
+  const { data, error } = await supabase
+    .from('crs_questions')
+    .insert({
+      session_id: parent.session_id,
+      sequence_number: seq,
+      type: parent.type,
+      option_count: parent.option_count,
+      multi_answer: parent.multi_answer,
+      status: 'ACTIVE',
+      launched_at: new Date().toISOString(),
+      results_visible: false,
+      is_revote: true,
+      parent_question_id: parent.id,
+    })
+    .select()
+    .single()
+
+  if (error) throw new Error(`Failed to launch revote: ${error.message}`)
+  if (!data) throw new Error('No data returned after launching revote')
+  return data as CRSQuestion
+}

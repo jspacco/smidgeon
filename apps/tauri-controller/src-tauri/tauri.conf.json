@@ -1,0 +1,38 @@
+{
+  "productName": "CRS Controller",
+  "version": "0.0.1",
+  "identifier": "edu.knox.crs.controller",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "pnpm dev",
+    "beforeBuildCommand": "pnpm build"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "CRS Controller",
+        "width": 700,
+        "height": 60,
+        "minWidth": 500,
+        "maxHeight": 60,
+        "resizable": true,
+        "alwaysOnTop": true,
+        "decorations": false,
+        "transparent": false,
+        "center": false,
+        "x": 0,
+        "y": 0
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": []
+  }
+}

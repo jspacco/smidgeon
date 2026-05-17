@@ -1,5 +1,26 @@
 # Changes
 
+## 2026-05-17 (tauri-controller + CI)
+- Built apps/tauri-controller from scratch: package.json, tsconfig.json, vite.config.ts, tailwind.config.js, postcss.config.js, index.html
+- Added tauri-controller src/index.css: Tailwind base + overflow:hidden + user-select:none for toolbar feel
+- Added tauri-controller src/main.tsx: StrictMode root render
+- Added tauri-controller src/lib/supabase.ts: Supabase client singleton
+- Added tauri-controller src/lib/session.ts: startSession, endSession, launchQuestion, closeQuestion, setResultsVisible, launchRevote, getNextSequenceNumber, generateQRToken
+- Added tauri-controller src/hooks/useLiveResponses.ts: Realtime INSERT subscription, count-only (no distribution in toolbar per design), unique respondent Set
+- Added tauri-controller src/hooks/useCurrentQuestion.ts: Realtime subscription to crs_questions, same pattern as faculty-pwa
+- Added tauri-controller src/App.tsx: HashRouter (required for Tauri) with routes: / → ToolbarApp, /results → ResultsWindow, /qr → QRWindow; manages auth, session, settings state; opens WebviewWindow for results/QR
+- Added tauri-controller src/components/LoginView.tsx: inline horizontal Google SSO bar, 60px tall, @knox.edu only
+- Added tauri-controller src/components/SessionSelector.tsx: horizontal list of instructor courses with Start session buttons, 60px tall
+- Added tauri-controller src/components/ControllerToolbar.tsx: full 60px horizontal toolbar — QR | ▶/■ | ↺ (conditional) | type-select + timer | N voted | Results/Hide | ⚙; floating settings panel below gear (only when idle)
+- Added tauri-controller src/windows/ResultsWindow.tsx: separate Tauri window at /results; MCQ BarChart or free response list; Round 1 + Round 2 side-by-side for revotes; sets results_visible=false on window close
+- Added tauri-controller src/windows/QRWindow.tsx: separate Tauri window at /qr; shows QRCode for active session's qr_token; no side effects on close
+- Added tauri-controller src-tauri/tauri.conf.json: 700×60 always-on-top undecorated main window, /results and /qr windows declared
+- Added tauri-controller src-tauri/capabilities/default.json: core:window permissions for create/close/show/hide/focus/always-on-top
+- Added tauri-controller src-tauri/Cargo.toml, src/lib.rs, src/main.rs, build.rs: minimal Tauri v2 Rust scaffold
+- Added .github/workflows/ci.yml: typecheck-and-build job (packages → typecheck → web apps); accessibility job (axe-core via Playwright, hard-blocks on WCAG violations)
+- Added scripts/axe-check.mjs: ESM axe-core runner used by CI, exits 1 on any violation
+- Added @axe-core/playwright, playwright, wait-on to root package.json devDependencies for CI
+
 ## 2026-05-17 (faculty-dashboard)
 - Added faculty-dashboard src/vite-env.d.ts: Vite client type reference
 - Added faculty-dashboard src/hooks/useSession.ts: onAuthStateChange hook returning { user, loading }

@@ -1,0 +1,19 @@
+{
+  "name": "crs",
+  "private": true,
+  "packageManager": "pnpm@9.15.4",
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "typecheck": "turbo typecheck",
+    "lint": "turbo lint"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.3",
+    "typescript": "^5.8.3",
+    "@types/node": "^22.15.3",
+    "@axe-core/playwright": "^4.10.1",
+    "playwright": "^1.50.0",
+    "wait-on": "^8.0.1"
+  }
+}
