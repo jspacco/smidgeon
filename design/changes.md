@@ -1,5 +1,17 @@
 # Changes
 
+## 2026-05-17 (faculty-dashboard)
+- Added faculty-dashboard src/vite-env.d.ts: Vite client type reference
+- Added faculty-dashboard src/hooks/useSession.ts: onAuthStateChange hook returning { user, loading }
+- Added faculty-dashboard src/App.tsx: BrowserRouter with ProtectedRoute, routes for /login, /courses, /courses/:courseId, /courses/:courseId/sessions/:sessionId
+- Added faculty-dashboard src/pages/LoginPage.tsx: Google SSO sign-in, Knox branding
+- Added faculty-dashboard src/pages/CoursesPage.tsx: list instructor courses, inline create-course form with join_code generation and INSTRUCTOR enrollment
+- Added faculty-dashboard src/pages/CourseView.tsx: join code display, student roster table, sessions table with duration/question count/attendance, per-session export buttons
+- Added faculty-dashboard src/pages/SessionDetailPage.tsx: session meta, export buttons, per-question breakdown (MCQ BarChart with revote side-by-side, free response table, screenshots), attendance table
+- Added faculty-dashboard src/components/SessionSummaryTable.tsx: reusable question summary table with type, status, options, duration, respondent count, and flags
+- Fixed faculty-dashboard tsconfig.json: added @crs/ui and @crs/types path aliases to resolve workspace packages for tsc
+- Fixed faculty-dashboard exports.ts and pages: cast Supabase join results through unknown to satisfy noUncheckedIndexedAccess strict mode
+
 ## 2026-05-17
 - Built apps/faculty-pwa from scratch: package.json, tsconfig.json (with @crs/* path aliases to source), vite.config.ts, tailwind.config.js, postcss.config.js, index.html, src/vite-env.d.ts, src/index.css, src/main.tsx
 - Added faculty-pwa src/lib/supabase.ts: Supabase client singleton
