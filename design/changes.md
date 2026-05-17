@@ -1,5 +1,17 @@
 # Changes
 
+## 2026-05-17 (foundation)
+- Added monorepo root: pnpm-workspace.yaml, turbo.json, tsconfig.base.json, root package.json with Turborepo pipeline (^build dependency ordering ensures types build before apps)
+- Added packages/types (@crs/types): canonical shared types — User, Course, Enrollment, CRSSession, CRSQuestion, CRSResponse, SessionAttendance, QuestionType, QuestionStatus, EnrollmentRole
+- Added packages/ui (@crs/ui): shared React components — Button, BarChart (vertical bars-up), CountUpTimer, QRCode, QRScanner, ReconnectingIndicator
+- Added supabase/migrations/01: full schema — users, courses, enrollments, crs_sessions, crs_questions (no UNIQUE on crs_responses per design), crs_responses, session_attendance; RLS enabled on all tables
+- Added supabase/migrations/02: RLS policies — enrolled users read questions/sessions, instructors write, students self-insert responses, owner manages courses
+- Added supabase/migrations/03: auth trigger — auto-creates public.users row on first Google SSO login
+- Added supabase/migrations/04: Realtime publication — crs_questions + crs_responses enabled for live updates
+- Added supabase/migrations/05: screenshots storage bucket
+- Added supabase/functions/validate-qr: Deno edge function — validates qr_token against active session, upserts session_attendance
+- Added supabase/functions/join-course: Deno edge function — looks up course by join_code, enrolls student as STUDENT (idempotent)
+
 ## 2026-05-17 (tauri-controller + CI)
 - Built apps/tauri-controller from scratch: package.json, tsconfig.json, vite.config.ts, tailwind.config.js, postcss.config.js, index.html
 - Added tauri-controller src/index.css: Tailwind base + overflow:hidden + user-select:none for toolbar feel
