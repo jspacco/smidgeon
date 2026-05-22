@@ -67,9 +67,19 @@ enrollments
   id          uuid PK DEFAULT gen_random_uuid()
   course_id   uuid FK → courses.id
   user_id     uuid FK → users.id
-  role        text CHECK (role IN ('INSTRUCTOR', 'STUDENT'))
+  role        text CHECK (role IN ('INSTRUCTOR', 'TA', 'STUDENT'))
   enrolled_at timestamptz DEFAULT now()
   UNIQUE (course_id, user_id)
+
+course_invitations
+  id          uuid PK DEFAULT gen_random_uuid()
+  course_id   uuid FK → courses.id
+  email       text NOT NULL
+  role        text CHECK (role IN ('INSTRUCTOR', 'TA'))
+  invited_by  uuid FK → users.id
+  created_at  timestamptz DEFAULT now()
+  UNIQUE (course_id, email)
+  -- On first login, auth trigger checks this table and auto-enrolls matching users
 ```
 
 ### CRS Session and Questions
@@ -446,13 +456,34 @@ Physical presence is tracked independently from question responses. A student ca
 
 Supabase Auth with Google OAuth. On first login, `users` row created automatically. Email domain validated — non-Knox accounts rejected.
 
-**Row Level Security (RLS) rules:**
+### Permission Model
 
-- Students can only read `crs_questions` for sessions in courses they're enrolled in
-- Students can only insert `crs_responses` for their own `user_id`
-- Students cannot read other students' responses
-- Instructors can read all responses for their courses
-- Anyone with a valid `join_code` can enroll themselves as a STUDENT
+Three enrollment roles with distinct capabilities:
+
+| Capability | INSTRUCTOR | TA | STUDENT |
+|---|---|---|---|
+| Run sessions (launch/stop/show questions) | ✓ | ✓ | — |
+| Download CSV data | ✓ | ✓ | — |
+| Manage enrollments (add/remove members) | ✓ | — | — |
+| Delete course | ✓ | — | — |
+| Respond to questions | — | — | ✓ |
+| Read own responses | — | — | ✓ |
+
+**Row Level Security rules:**
+
+| Table | INSERT | SELECT | UPDATE | DELETE |
+|---|---|---|---|---|
+| `courses` | Any authenticated user | Enrolled user or owner | Owner only | Owner only |
+| `enrollments` | Self as STUDENT; owner bootstrap as INSTRUCTOR; INSTRUCTOR adds INSTRUCTOR/TA | Own row or INSTRUCTOR | INSTRUCTOR | INSTRUCTOR |
+| `crs_sessions` | INSTRUCTOR or TA | Any enrolled user | INSTRUCTOR or TA | — |
+| `crs_questions` | INSTRUCTOR or TA | Any enrolled user | INSTRUCTOR or TA | — |
+| `crs_responses` | Own rows only | Own rows or INSTRUCTOR/TA | Own rows only | — |
+| `session_attendance` | Own rows only | Own rows or INSTRUCTOR/TA | — | — |
+| `course_invitations` | INSTRUCTOR | INSTRUCTOR | — | INSTRUCTOR |
+
+**Implementation note:** enrollment role checks use a `SECURITY DEFINER` function (`is_enrolled_as`) to avoid infinite RLS recursion when enrollment policies query the enrollments table.
+
+**Auto-enrollment from invitations:** on first login, the auth trigger checks `course_invitations` for the new user's email and inserts matching enrollments automatically. If the user already enrolled as STUDENT via `join_code`, the invitation is skipped (`ON CONFLICT DO NOTHING`).
 
 ---
 

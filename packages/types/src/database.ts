@@ -1,6 +1,6 @@
 export type QuestionType = 'MCQ_SINGLE' | 'MCQ_MULTI' | 'FREE_RESPONSE'
 export type QuestionStatus = 'PENDING' | 'ACTIVE' | 'CLOSED'
-export type EnrollmentRole = 'INSTRUCTOR' | 'STUDENT'
+export type EnrollmentRole = 'INSTRUCTOR' | 'TA' | 'STUDENT'
 
 export interface User {
   id: string
@@ -67,4 +67,13 @@ export interface SessionAttendance {
   user_id: string
   scanned_at: string
   scan_token: string
+}
+
+export interface CourseInvitation {
+  id: string
+  course_id: string
+  email: string
+  role: 'INSTRUCTOR' | 'TA'
+  invited_by: string
+  created_at: string
 }
