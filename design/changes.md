@@ -1,5 +1,8 @@
 # Changes
 
+## 2026-05-22 (migration consolidation)
+- Replaced all 7 migration files with 5 clean files (001–005); fresh-create style, no ALTER statements, TA included from the start: 001_schema.sql (all tables including course_invitations), 002_helpers.sql (is_enrolled_as + handle_new_user trigger), 003_policies.sql (all RLS policies), 004_realtime.sql (unchanged content), 005_storage.sql (unchanged content)
+
 ## 2026-05-22
 - Added migration 06: extended enrollments.role CHECK to include 'TA'; created course_invitations table (course_id, email, role, invited_by, UNIQUE course_id+email); created is_enrolled_as() SECURITY DEFINER helper to avoid RLS recursion; added RLS policies for course_invitations (INSTRUCTOR-only); updated handle_new_user() auth trigger to auto-enroll new users from course_invitations on first login
 - Added migration 07: dropped all existing RLS policies from migration 02; added full permission-model policies — courses (any-auth insert, enrolled-or-owner select, owner-only update/delete), enrollments (self-STUDENT insert + owner-bootstrap + INSTRUCTOR-adds-others, own-or-INSTRUCTOR select, INSTRUCTOR update/delete), crs_sessions/crs_questions (enrolled select, INSTRUCTOR-or-TA write), crs_responses/session_attendance (own insert, own-or-INSTRUCTOR/TA select)

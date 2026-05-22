@@ -1,4 +1,8 @@
--- Users (mirrors Supabase Auth; row created automatically via trigger)
+-- ============================================================
+-- 001_schema.sql — Full schema, created fresh
+-- ============================================================
+
+-- Users (mirrors Supabase Auth; row created automatically via trigger in 002_helpers.sql)
 CREATE TABLE public.users (
   id         uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email      text NOT NULL,
@@ -25,11 +29,23 @@ CREATE TABLE public.enrollments (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   course_id   uuid NOT NULL REFERENCES public.courses(id) ON DELETE CASCADE,
   user_id     uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-  role        text NOT NULL CHECK (role IN ('INSTRUCTOR', 'STUDENT')),
+  role        text NOT NULL CHECK (role IN ('INSTRUCTOR', 'TA', 'STUDENT')),
   enrolled_at timestamptz DEFAULT now(),
   UNIQUE (course_id, user_id)
 );
 ALTER TABLE public.enrollments ENABLE ROW LEVEL SECURITY;
+
+-- Course invitations — pre-invite INSTRUCTOR/TA before they first log in
+CREATE TABLE public.course_invitations (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  course_id   uuid NOT NULL REFERENCES public.courses(id) ON DELETE CASCADE,
+  email       text NOT NULL,
+  role        text NOT NULL CHECK (role IN ('INSTRUCTOR', 'TA')),
+  invited_by  uuid NOT NULL REFERENCES public.users(id),
+  created_at  timestamptz DEFAULT now(),
+  UNIQUE (course_id, email)
+);
+ALTER TABLE public.course_invitations ENABLE ROW LEVEL SECURITY;
 
 -- CRS Sessions
 CREATE TABLE public.crs_sessions (

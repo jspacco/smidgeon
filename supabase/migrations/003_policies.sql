@@ -1,43 +1,23 @@
 -- ============================================================
--- Migration 07: Replace RLS policies with full permission model
+-- 003_policies.sql — All RLS policies
+-- Depends on: 001_schema.sql, 002_helpers.sql (is_enrolled_as)
 --
--- Roles:
+-- Permission model:
 --   INSTRUCTOR — full access including enrollment management and course deletion
 --   TA         — run sessions and download data; no enrollment management, no course deletion
 --   STUDENT    — respond to questions only
---
--- Depends on: public.is_enrolled_as() from migration 06
 -- ============================================================
 
--- ---- Drop all existing policies from migration 02 ----
+-- ---- users ----
+-- Each user sees and manages only their own row.
 
-DROP POLICY IF EXISTS "courses: enrolled read"       ON public.courses;
-DROP POLICY IF EXISTS "courses: owner write"         ON public.courses;
-DROP POLICY IF EXISTS "courses: owner update"        ON public.courses;
-DROP POLICY IF EXISTS "courses: owner delete"        ON public.courses;
+CREATE POLICY "users: read own" ON public.users
+  FOR SELECT USING (id = auth.uid());
 
-DROP POLICY IF EXISTS "enrollments: self read"       ON public.enrollments;
-DROP POLICY IF EXISTS "enrollments: self insert"     ON public.enrollments;
+CREATE POLICY "users: insert own" ON public.users
+  FOR INSERT WITH CHECK (id = auth.uid());
 
-DROP POLICY IF EXISTS "sessions: enrolled read"      ON public.crs_sessions;
-DROP POLICY IF EXISTS "sessions: instructor insert"  ON public.crs_sessions;
-DROP POLICY IF EXISTS "sessions: instructor update"  ON public.crs_sessions;
-
-DROP POLICY IF EXISTS "questions: enrolled read"     ON public.crs_questions;
-DROP POLICY IF EXISTS "questions: instructor insert" ON public.crs_questions;
-DROP POLICY IF EXISTS "questions: instructor update" ON public.crs_questions;
-
-DROP POLICY IF EXISTS "responses: student insert"    ON public.crs_responses;
-DROP POLICY IF EXISTS "responses: student update own" ON public.crs_responses;
-DROP POLICY IF EXISTS "responses: read"              ON public.crs_responses;
-
-DROP POLICY IF EXISTS "attendance: read"             ON public.session_attendance;
-DROP POLICY IF EXISTS "attendance: student insert"   ON public.session_attendance;
-
--- ============================================================
--- COURSES
--- ============================================================
-
+-- ---- courses ----
 -- Rule 1: any authenticated user can create a course
 CREATE POLICY "courses: any auth insert" ON public.courses
   FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
@@ -51,21 +31,15 @@ CREATE POLICY "courses: enrolled or owner select" ON public.courses
     )
   );
 
--- Rule 3: only owner can update or delete
+-- Rule 3: owner only
 CREATE POLICY "courses: owner update" ON public.courses
   FOR UPDATE USING (owner_id = auth.uid());
 
 CREATE POLICY "courses: owner delete" ON public.courses
   FOR DELETE USING (owner_id = auth.uid());
 
--- ============================================================
--- ENROLLMENTS
--- ============================================================
-
--- Rule 4 + 5 (combined):
---   STUDENT self-enrollment: user_id = caller AND role = 'STUDENT'
---   Owner bootstrap:         caller enrolls themselves as INSTRUCTOR for a course they own
---   INSTRUCTOR adds others:  existing INSTRUCTOR of the course adds any INSTRUCTOR/TA row
+-- ---- enrollments ----
+-- Rule 4+5: self as STUDENT; owner bootstraps as INSTRUCTOR; INSTRUCTOR adds INSTRUCTOR/TA
 CREATE POLICY "enrollments: insert" ON public.enrollments
   FOR INSERT WITH CHECK (
     -- Any authenticated user can self-enroll as STUDENT (open enrollment via join_code)
@@ -90,7 +64,7 @@ CREATE POLICY "enrollments: select" ON public.enrollments
     OR public.is_enrolled_as(course_id, ARRAY['INSTRUCTOR'])
   );
 
--- Rule 7: INSTRUCTOR of that course only
+-- Rule 7: INSTRUCTOR only
 CREATE POLICY "enrollments: instructor update" ON public.enrollments
   FOR UPDATE USING (
     public.is_enrolled_as(course_id, ARRAY['INSTRUCTOR'])
@@ -101,17 +75,33 @@ CREATE POLICY "enrollments: instructor delete" ON public.enrollments
     public.is_enrolled_as(course_id, ARRAY['INSTRUCTOR'])
   );
 
--- ============================================================
--- CRS_SESSIONS
--- ============================================================
+-- ---- course_invitations ----
+-- INSTRUCTOR-only management
 
--- Rule 8: any enrolled user (any role) can read sessions
+CREATE POLICY "invitations: instructor select" ON public.course_invitations
+  FOR SELECT USING (
+    public.is_enrolled_as(course_id, ARRAY['INSTRUCTOR'])
+  );
+
+CREATE POLICY "invitations: instructor insert" ON public.course_invitations
+  FOR INSERT WITH CHECK (
+    public.is_enrolled_as(course_id, ARRAY['INSTRUCTOR'])
+    AND invited_by = auth.uid()
+  );
+
+CREATE POLICY "invitations: instructor delete" ON public.course_invitations
+  FOR DELETE USING (
+    public.is_enrolled_as(course_id, ARRAY['INSTRUCTOR'])
+  );
+
+-- ---- crs_sessions ----
+-- Rule 8: any enrolled user can read
 CREATE POLICY "sessions: enrolled select" ON public.crs_sessions
   FOR SELECT USING (
     public.is_enrolled_as(course_id, ARRAY['INSTRUCTOR', 'TA', 'STUDENT'])
   );
 
--- Rule 9: INSTRUCTOR or TA can insert/update sessions
+-- Rule 9: INSTRUCTOR or TA can write
 CREATE POLICY "sessions: instructor or ta insert" ON public.crs_sessions
   FOR INSERT WITH CHECK (
     public.is_enrolled_as(course_id, ARRAY['INSTRUCTOR', 'TA'])
@@ -122,12 +112,9 @@ CREATE POLICY "sessions: instructor or ta update" ON public.crs_sessions
     public.is_enrolled_as(course_id, ARRAY['INSTRUCTOR', 'TA'])
   );
 
--- ============================================================
--- CRS_QUESTIONS
--- (no direct course_id — must join to crs_sessions)
--- ============================================================
-
--- Rule 10: any enrolled user can read questions
+-- ---- crs_questions ----
+-- (no direct course_id — join through crs_sessions)
+-- Rule 10: any enrolled user can read
 CREATE POLICY "questions: enrolled select" ON public.crs_questions
   FOR SELECT USING (
     EXISTS (
@@ -137,7 +124,7 @@ CREATE POLICY "questions: enrolled select" ON public.crs_questions
     )
   );
 
--- Rule 11: INSTRUCTOR or TA can insert/update questions
+-- Rule 11: INSTRUCTOR or TA can write
 CREATE POLICY "questions: instructor or ta insert" ON public.crs_questions
   FOR INSERT WITH CHECK (
     EXISTS (
@@ -156,11 +143,8 @@ CREATE POLICY "questions: instructor or ta update" ON public.crs_questions
     )
   );
 
--- ============================================================
--- CRS_RESPONSES
--- ============================================================
-
--- Rule 12: students insert/update only their own rows
+-- ---- crs_responses ----
+-- Rule 12: own rows only for insert/update
 CREATE POLICY "responses: own insert" ON public.crs_responses
   FOR INSERT WITH CHECK (user_id = auth.uid());
 
@@ -179,11 +163,8 @@ CREATE POLICY "responses: select" ON public.crs_responses
     )
   );
 
--- ============================================================
--- SESSION_ATTENDANCE
--- ============================================================
-
--- Rule 14: students insert only their own attendance rows
+-- ---- session_attendance ----
+-- Rule 14: own rows only for insert
 CREATE POLICY "attendance: own insert" ON public.session_attendance
   FOR INSERT WITH CHECK (user_id = auth.uid());
 
