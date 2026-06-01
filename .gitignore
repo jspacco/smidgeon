@@ -5,6 +5,7 @@
 **/dist/
 **/build/
 **/.vite/
+**/.turbo/
 
 # Environment — never commit secrets
 .env
@@ -35,3 +36,6 @@ pnpm-debug.log*
 
 # TypeScript
 *.tsbuildinfo
+
+# tmp file I always create
+OUT

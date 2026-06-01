@@ -93,6 +93,7 @@ crs_sessions
   qr_token    text NOT NULL UNIQUE  -- for physical attendance verification
   -- no controller field needed: Tauri and Faculty PWA are always simultaneous controllers
   -- last write wins; in practice the instructor has one phone and one laptop
+  -- only one session can be "open" at a time; enforced by a partial index so that each course_id only has one ended_at IS NULL at a time
 
 crs_questions
   id               uuid PK DEFAULT gen_random_uuid()
@@ -401,7 +402,12 @@ Settings apply to the next question launched, not the current one.
 
 **Session management:**
 - Session start: creates `crs_sessions` row, generates `qr_token`
-- Session end: in ⚙ settings panel — sets `ended_at`
+- At most one active session per course at any time
+- Enforced by partial unique index on (course_id) WHERE ended_at IS NULL
+- Starting a new session auto-closes any open session (with confirmation)
+- End Session is a primary UI action, not buried in settings, sets `end_time`
+- Session list shows inline Close button for any open sessions
+- Students always get the single active session or a waiting screen
 
 ---
 

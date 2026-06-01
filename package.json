@@ -1,7 +1,7 @@
 {
   "name": "crs",
   "private": true,
-  "packageManager": "pnpm@11.1.2",
+  "packageManager": "pnpm@11.2.2",
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",

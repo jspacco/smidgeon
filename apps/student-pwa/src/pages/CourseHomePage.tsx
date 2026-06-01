@@ -27,7 +27,7 @@ export default function CourseHomePage() {
       setError(null)
       try {
         const [courseRes, sessionsRes, activeRes] = await Promise.all([
-          supabase.from('courses').select('*').eq('id', courseId).single(),
+          supabase.from('courses').select('*').eq('id', courseId).maybeSingle(),
           supabase
             .from('crs_sessions')
             .select('*')
@@ -39,6 +39,8 @@ export default function CourseHomePage() {
             .select('*')
             .eq('course_id', courseId)
             .is('ended_at', null)
+            .order('started_at', { ascending: false })
+            .limit(1)
             .maybeSingle(),
         ])
 

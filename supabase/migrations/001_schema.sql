@@ -57,6 +57,10 @@ CREATE TABLE public.crs_sessions (
 );
 ALTER TABLE public.crs_sessions ENABLE ROW LEVEL SECURITY;
 
+CREATE UNIQUE INDEX one_active_session_per_course 
+  ON crs_sessions (course_id) 
+  WHERE ended_at IS NULL;
+
 -- CRS Questions
 CREATE TABLE public.crs_questions (
   id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -96,3 +100,12 @@ CREATE TABLE public.session_attendance (
   UNIQUE (session_id, user_id)
 );
 ALTER TABLE public.session_attendance ENABLE ROW LEVEL SECURITY;
+
+-- Grant table access to Supabase roles
+-- Required after DROP SCHEMA public CASCADE wipes default grants
+GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO anon;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO service_role;
