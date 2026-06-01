@@ -19,6 +19,13 @@ interface Settings {
   multiAnswer: boolean
 }
 
+interface AttendeeRow {
+  user_id: string
+  name: string
+  email: string
+  attended: boolean
+}
+
 function buildDistribution(rawDist: Record<string, number>, optionCount: number): Record<string, number> {
   const labels = ['A', 'B', 'C', 'D', 'E'].slice(0, optionCount)
   const result: Record<string, number> = {}
@@ -26,6 +33,13 @@ function buildDistribution(rawDist: Record<string, number>, optionCount: number)
     result[label] = rawDist[label] ?? 0
   }
   return result
+}
+
+// Format as YYYY-MM-DD HH:MM:SS in local 24-hour time
+function formatDatetime(iso: string): string {
+  const d = new Date(iso)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
 }
 
 export default function SessionPage() {
@@ -42,10 +56,16 @@ export default function SessionPage() {
   const [showSettings, setShowSettings] = useState(false)
   const [showRevoteButton, setShowRevoteButton] = useState(false)
   const [resultsVisible, setResultsVisibleState] = useState(false)
+  const [showFullscreenQR, setShowFullscreenQR] = useState(false)
 
   const [launching, setLaunching] = useState(false)
   const [stopping, setStopping] = useState(false)
   const [ending, setEnding] = useState(false)
+
+  // Attendance state
+  const [attendees, setAttendees] = useState<AttendeeRow[]>([])
+  const [showAttendance, setShowAttendance] = useState(false)
+  const [markingPresent, setMarkingPresent] = useState<string | null>(null)
 
   const { question, isConnected: questionsConnected } = useCurrentQuestion(sessionId ?? null)
   const { respondentCount, distribution, freeResponses, isConnected: responsesConnected } =
@@ -64,12 +84,8 @@ export default function SessionPage() {
 
   // Show revote button when question closes, hide when new one launches
   useEffect(() => {
-    if (isClosed) {
-      setShowRevoteButton(true)
-    }
-    if (isActive) {
-      setShowRevoteButton(false)
-    }
+    if (isClosed) setShowRevoteButton(true)
+    if (isActive) setShowRevoteButton(false)
   }, [isActive, isClosed])
 
   // Load course and session
@@ -98,6 +114,71 @@ export default function SessionPage() {
 
     load()
   }, [courseId, sessionId])
+
+  // Load attendance when section is opened
+  useEffect(() => {
+    if (!showAttendance || !courseId || !sessionId) return
+
+    async function loadAttendance() {
+      try {
+        const [enrollRes, attendRes] = await Promise.all([
+          supabase
+            .from('enrollments')
+            .select('user_id, users(name, email)')
+            .eq('course_id', courseId)
+            .eq('role', 'STUDENT'),
+          supabase
+            .from('session_attendance')
+            .select('user_id')
+            .eq('session_id', sessionId),
+        ])
+
+        const attendedIds = new Set(
+          ((attendRes.data ?? []) as Array<{ user_id: string }>).map((r) => r.user_id)
+        )
+
+        const rows: AttendeeRow[] = ((enrollRes.data ?? []) as Array<{
+          user_id: string
+          users: { name: string; email: string } | null
+        }>)
+          .filter((r) => r.users !== null)
+          .map((r) => ({
+            user_id: r.user_id,
+            name: r.users!.name,
+            email: r.users!.email,
+            attended: attendedIds.has(r.user_id),
+          }))
+          .sort((a, b) => a.name.localeCompare(b.name))
+
+        setAttendees(rows)
+      } catch {
+        // Silently fail — attendance section is non-critical
+      }
+    }
+
+    void loadAttendance()
+  }, [showAttendance, courseId, sessionId])
+
+  async function handleMarkPresent(userId: string) {
+    if (!sessionId) return
+    setMarkingPresent(userId)
+    try {
+      const { error } = await supabase
+        .from('session_attendance')
+        .upsert(
+          { session_id: sessionId, user_id: userId, scan_token: 'MANUAL', method: 'CODE' },
+          { onConflict: 'session_id,user_id' }
+        )
+      if (error) throw error
+      setAttendees((prev) =>
+        prev.map((a) => (a.user_id === userId ? { ...a, attended: true } : a))
+      )
+    } catch {
+      // Non-critical — no toast needed
+    } finally {
+      setMarkingPresent(null)
+    }
+  }
 
   async function handleLaunch() {
     if (!sessionId) return
@@ -201,6 +282,28 @@ export default function SessionPage() {
     <main className="min-h-screen bg-gray-50 flex flex-col">
       <ReconnectingIndicator isConnected={isConnected} />
 
+      {/* Fullscreen QR overlay */}
+      {showFullscreenQR && session && (
+        <div
+          className="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center gap-6 px-6"
+          onClick={() => setShowFullscreenQR(false)}
+          role="dialog"
+          aria-label="QR code fullscreen — tap to close"
+          aria-modal="true"
+        >
+          <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
+            Scan to join session
+          </p>
+          <div onClick={(e) => e.stopPropagation()}>
+            <QRCode value={session.qr_token} size={280} />
+          </div>
+          <p className="text-5xl font-mono font-bold tracking-widest text-gray-900">
+            {session.session_code}
+          </p>
+          <p className="text-xs text-gray-400 mt-2">Tap anywhere to close</p>
+        </div>
+      )}
+
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2 min-w-0">
@@ -230,6 +333,33 @@ export default function SessionPage() {
           ⚙
         </button>
       </header>
+
+      {/* Session code + QR — always visible */}
+      {session && (
+        <div className="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between shrink-0">
+          <div>
+            <p className="text-xs text-gray-400 uppercase tracking-wide font-semibold">Session</p>
+            <p className="text-xs text-gray-500 font-mono">{formatDatetime(session.started_at)}</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <p className="text-xs text-gray-400 uppercase tracking-wide font-semibold">Code</p>
+              <p className="text-2xl font-mono font-bold tracking-widest text-gray-900">
+                {session.session_code}
+              </p>
+            </div>
+            <button
+              onClick={() => setShowFullscreenQR(true)}
+              className="flex flex-col items-center justify-center w-14 h-12 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors text-xs font-medium text-gray-700"
+              aria-label="Show QR code fullscreen"
+              title="Show QR as fullscreen"
+            >
+              <span className="text-base" aria-hidden="true">⬛</span>
+              <span className="text-xs leading-none">QR</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Settings panel — inline, not modal */}
       {showSettings && (
@@ -300,31 +430,15 @@ export default function SessionPage() {
           </div>
 
           <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-              Session
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+              Session info
             </p>
-            {session && (
-              <p className="text-sm text-gray-600 mb-2">
-                Join code:{' '}
-                <span className="font-mono font-bold tracking-widest text-gray-900">
-                  {course?.join_code}
-                </span>
-              </p>
-            )}
-            {session && (
-              <div className="mb-3 flex justify-center">
-                <QRCode value={session.qr_token} size={140} />
-              </div>
-            )}
-            <Button
-              variant="danger"
-              size="sm"
-              onClick={handleEndSession}
-              disabled={ending || isActive}
-              className="w-full"
-            >
-              {ending ? 'Ending session…' : 'End session'}
-            </Button>
+            <p className="text-sm text-gray-600">
+              Join code:{' '}
+              <span className="font-mono font-bold tracking-widest text-gray-900">
+                {course?.join_code}
+              </span>
+            </p>
           </div>
         </section>
       )}
@@ -336,6 +450,18 @@ export default function SessionPage() {
             {actionError}
           </p>
         )}
+
+        {/* END SESSION — primary button, not in settings */}
+        <Button
+          variant="danger"
+          size="lg"
+          onClick={handleEndSession}
+          disabled={ending || isActive}
+          className="w-full"
+          aria-label="End session"
+        >
+          {ending ? 'Ending session…' : '■  End Session'}
+        </Button>
 
         {/* Question type selector — disabled while active */}
         <QuestionTypeSelector
@@ -450,12 +576,63 @@ export default function SessionPage() {
 
         {/* Idle state hint */}
         {!question && !isActive && (
-          <div className="text-center py-8">
+          <div className="text-center py-4">
             <p className="text-gray-400 text-sm">No question active. Launch one above.</p>
           </div>
         )}
+
+        {/* Attendance section */}
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <button
+            className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+            onClick={() => setShowAttendance((s) => !s)}
+            aria-expanded={showAttendance}
+          >
+            <span>Attendance</span>
+            <span className="text-xs text-gray-400">
+              {attendees.length > 0
+                ? `${attendees.filter((a) => a.attended).length} / ${attendees.length} present`
+                : ''}
+              {showAttendance ? ' ▲' : ' ▼'}
+            </span>
+          </button>
+
+          {showAttendance && (
+            <div className="border-t border-gray-100 px-4 py-3">
+              {attendees.length === 0 && (
+                <p className="text-sm text-gray-400 text-center py-2">
+                  Loading…
+                </p>
+              )}
+              <ul className="space-y-2 max-h-64 overflow-y-auto">
+                {attendees.map((a) => (
+                  <li
+                    key={a.user_id}
+                    className="flex items-center justify-between gap-2"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{a.name}</p>
+                      <p className="text-xs text-gray-400 truncate">{a.email}</p>
+                    </div>
+                    {a.attended ? (
+                      <span className="text-xs font-semibold text-green-600 shrink-0">✓ Present</span>
+                    ) : (
+                      <button
+                        onClick={() => void handleMarkPresent(a.user_id)}
+                        disabled={markingPresent === a.user_id}
+                        className="text-xs font-medium text-blue-600 hover:text-blue-800 shrink-0 disabled:opacity-50"
+                        aria-label={`Mark ${a.name} present`}
+                      >
+                        {markingPresent === a.user_id ? 'Marking…' : 'Mark present'}
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
       </div>
     </main>
   )
 }
-

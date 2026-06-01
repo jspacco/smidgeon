@@ -1,10 +1,11 @@
 export interface ValidateQRRequest {
-  qr_token: string
-  session_id: string
+  qr_token?: string     // UUID from QR code scan
+  session_code?: string // 4-digit code typed manually
 }
 
 export interface ValidateQRResponse {
   success: boolean
+  session_id?: string   // returned on success so client can navigate to session
   error?: string
 }
 

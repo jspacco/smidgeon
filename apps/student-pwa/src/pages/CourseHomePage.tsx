@@ -74,7 +74,7 @@ export default function CourseHomePage() {
 
   function handleScanQR() {
     navigate('/scan', {
-      state: { sessionId: activeSession?.id ?? null },
+      state: { courseId: courseId ?? null },
     })
   }
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { startSession } from '../lib/session'
+import { startSession, endSession, reopenSession } from '../lib/session'
 import { Button, QRCode } from '@crs/ui'
 import type { Course, CRSSession } from '@crs/types'
 
@@ -10,6 +10,13 @@ interface SessionSummary {
   started_at: string
   ended_at: string | null
   question_count: number
+}
+
+// YYYY-MM-DD HH:MM:SS 24-hour local time
+function formatDatetime(iso: string): string {
+  const d = new Date(iso)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
 }
 
 export default function CourseHomePage() {
@@ -22,74 +29,70 @@ export default function CourseHomePage() {
   const [loading, setLoading] = useState(true)
   const [starting, setStarting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [sessionAction, setSessionAction] = useState<string | null>(null)
 
   useEffect(() => {
     if (!courseId) return
-
-    async function load() {
-      setLoading(true)
-      setError(null)
-
-      try {
-        // Load course
-        const { data: courseData, error: courseError } = await supabase
-          .from('courses')
-          .select('*')
-          .eq('id', courseId)
-          .single()
-
-        if (courseError) throw new Error(courseError.message)
-        setCourse(courseData as Course)
-
-        // Load sessions
-        const { data: sessionsData, error: sessionsError } = await supabase
-          .from('crs_sessions')
-          .select('id, started_at, ended_at')
-          .eq('course_id', courseId)
-          .order('started_at', { ascending: false })
-
-        if (sessionsError) throw new Error(sessionsError.message)
-
-        const sessionList = (sessionsData ?? []) as Array<{
-          id: string
-          started_at: string
-          ended_at: string | null
-        }>
-
-        // Get question counts for each session
-        const summaries: SessionSummary[] = await Promise.all(
-          sessionList.map(async (s) => {
-            const { count } = await supabase
-              .from('crs_questions')
-              .select('id', { count: 'exact', head: true })
-              .eq('session_id', s.id)
-            return { ...s, question_count: count ?? 0 }
-          }),
-        )
-
-        setSessions(summaries)
-
-        // Find active session (no ended_at)
-        const active = sessionList.find((s) => s.ended_at === null)
-        if (active) {
-          const { data: fullSession } = await supabase
-            .from('crs_sessions')
-            .select('*')
-            .eq('id', active.id)
-            .single()
-          setActiveSession(fullSession as CRSSession)
-        } else {
-          setActiveSession(null)
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load course')
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    load()
+    void load()
   }, [courseId])
+
+  async function load() {
+    setLoading(true)
+    setError(null)
+
+    try {
+      const { data: courseData, error: courseError } = await supabase
+        .from('courses')
+        .select('*')
+        .eq('id', courseId)
+        .single()
+
+      if (courseError) throw new Error(courseError.message)
+      setCourse(courseData as Course)
+
+      const { data: sessionsData, error: sessionsError } = await supabase
+        .from('crs_sessions')
+        .select('id, started_at, ended_at')
+        .eq('course_id', courseId)
+        .order('started_at', { ascending: false })
+
+      if (sessionsError) throw new Error(sessionsError.message)
+
+      const sessionList = (sessionsData ?? []) as Array<{
+        id: string
+        started_at: string
+        ended_at: string | null
+      }>
+
+      const summaries: SessionSummary[] = await Promise.all(
+        sessionList.map(async (s) => {
+          const { count } = await supabase
+            .from('crs_questions')
+            .select('id', { count: 'exact', head: true })
+            .eq('session_id', s.id)
+          return { ...s, question_count: count ?? 0 }
+        }),
+      )
+
+      setSessions(summaries)
+
+      const active = sessionList.find((s) => s.ended_at === null)
+      if (active) {
+        const { data: fullSession } = await supabase
+          .from('crs_sessions')
+          .select('*')
+          .eq('id', active.id)
+          .single()
+        setActiveSession(fullSession as CRSSession)
+      } else {
+        setActiveSession(null)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load course')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   async function handleStartSession() {
     if (!courseId) return
@@ -105,14 +108,29 @@ export default function CourseHomePage() {
     }
   }
 
-  function formatDate(iso: string) {
-    return new Date(iso).toLocaleDateString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
+  async function handleEndSession(sessionId: string) {
+    setSessionAction(sessionId)
+    setError(null)
+    try {
+      await endSession(sessionId)
+      await load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to end session')
+    } finally {
+      setSessionAction(null)
+    }
+  }
+
+  async function handleReopenSession(sessionId: string) {
+    setSessionAction(sessionId)
+    setError(null)
+    try {
+      const session = await reopenSession(sessionId)
+      navigate(`/courses/${courseId}/session/${session.id}`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to reopen session')
+      setSessionAction(null)
+    }
   }
 
   if (loading) {
@@ -210,20 +228,47 @@ export default function CourseHomePage() {
               {sessions.map((s) => (
                 <li
                   key={s.id}
-                  className="bg-white rounded-xl border border-gray-200 px-4 py-3 flex items-center justify-between"
+                  className="bg-white rounded-xl border border-gray-200 px-4 py-3"
                 >
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{formatDate(s.started_at)}</p>
-                    <p className="text-xs text-gray-500">
-                      {s.question_count} question{s.question_count !== 1 ? 's' : ''}
-                      {s.ended_at === null && (
-                        <span className="ml-2 text-green-600 font-semibold">• Active</span>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-mono font-medium text-gray-900">
+                        {formatDatetime(s.started_at)}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {s.question_count} question{s.question_count !== 1 ? 's' : ''}
+                        {s.ended_at === null && (
+                          <span className="ml-2 text-green-600 font-semibold">• LIVE</span>
+                        )}
+                        {s.ended_at !== null && (
+                          <span className="ml-2 text-gray-400 font-mono">
+                            → {formatDatetime(s.ended_at)}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      {s.ended_at === null ? (
+                        <button
+                          onClick={() => void handleEndSession(s.id)}
+                          disabled={sessionAction !== null}
+                          className="text-xs font-semibold text-white bg-red-600 hover:bg-red-700 active:bg-red-800 disabled:opacity-50 px-3 py-1.5 rounded-lg transition-colors min-h-[36px]"
+                          aria-label="End session"
+                        >
+                          {sessionAction === s.id ? '…' : 'End'}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => void handleReopenSession(s.id)}
+                          disabled={sessionAction !== null}
+                          className="text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 active:bg-gray-300 disabled:opacity-50 px-3 py-1.5 rounded-lg transition-colors min-h-[36px]"
+                          aria-label="Reopen session"
+                        >
+                          {sessionAction === s.id ? '…' : 'Reopen'}
+                        </button>
                       )}
-                    </p>
+                    </div>
                   </div>
-                  {s.ended_at && (
-                    <p className="text-xs text-gray-400">{formatDate(s.ended_at)}</p>
-                  )}
                 </li>
               ))}
             </ul>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { JoinCourseResponse } from '@crs/types'
 import { Button } from '@crs/ui'
@@ -12,6 +12,27 @@ export default function CoursesPage() {
   const [joinCode, setJoinCode] = useState('')
   const [joinError, setJoinError] = useState<string | null>(null)
   const [joinLoading, setJoinLoading] = useState(false)
+  // Map of courseId → sessionId for courses with an active session
+  const [liveMap, setLiveMap] = useState<Record<string, string>>({})
+
+  // After courses load, check which have active sessions
+  useEffect(() => {
+    if (courses.length === 0) return
+
+    const ids = courses.map((c) => c.id)
+    supabase
+      .from('crs_sessions')
+      .select('id, course_id')
+      .in('course_id', ids)
+      .is('ended_at', null)
+      .then(({ data }) => {
+        const map: Record<string, string> = {}
+        for (const s of (data ?? []) as Array<{ id: string; course_id: string }>) {
+          map[s.course_id] = s.id
+        }
+        setLiveMap(map)
+      })
+  }, [courses])
 
   async function handleJoin(e: React.FormEvent) {
     e.preventDefault()
@@ -39,6 +60,16 @@ export default function CoursesPage() {
   async function handleSignOut() {
     await signOut()
     navigate('/')
+  }
+
+  function handleCourseTap(courseId: string) {
+    const sessionId = liveMap[courseId]
+    if (sessionId) {
+      // Live course → go directly to QR scan screen
+      navigate('/scan', { state: { courseId } })
+    } else {
+      navigate(`/courses/${courseId}`)
+    }
   }
 
   return (
@@ -72,17 +103,38 @@ export default function CoursesPage() {
 
       {courses.length > 0 && (
         <ul className="flex flex-col gap-3 mb-8" aria-label="Enrolled courses">
-          {courses.map((course) => (
-            <li key={course.id}>
-              <button
-                onClick={() => navigate(`/courses/${course.id}`)}
-                className="w-full text-left bg-white rounded-xl px-4 py-4 shadow-sm border border-gray-100 hover:border-blue-200 hover:shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-              >
-                <p className="font-semibold text-gray-900">{course.name}</p>
-                <p className="text-sm text-gray-400 mt-0.5">Code: {course.join_code}</p>
-              </button>
-            </li>
-          ))}
+          {courses.map((course) => {
+            const isLive = Boolean(liveMap[course.id])
+            return (
+              <li key={course.id}>
+                <button
+                  onClick={() => handleCourseTap(course.id)}
+                  className={[
+                    'w-full text-left bg-white rounded-xl px-4 py-4 shadow-sm border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500',
+                    isLive
+                      ? 'border-green-400 hover:border-green-500 hover:shadow-md'
+                      : 'border-gray-100 hover:border-blue-200 hover:shadow-md',
+                  ].join(' ')}
+                  aria-label={`${course.name}${isLive ? ' — session in progress, tap to join' : ''}`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-gray-900 truncate">{course.name}</p>
+                      <p className="text-sm text-gray-400 mt-0.5">Code: {course.join_code}</p>
+                    </div>
+                    {isLive && (
+                      <span
+                        className="shrink-0 text-xs font-bold text-white bg-green-500 px-2 py-1 rounded-md"
+                        aria-label="Live session in progress"
+                      >
+                        LIVE
+                      </span>
+                    )}
+                  </div>
+                </button>
+              </li>
+            )
+          })}
         </ul>
       )}
 

@@ -5,18 +5,58 @@ export function generateQRToken(): string {
   return crypto.randomUUID()
 }
 
+export function generateSessionCode(): string {
+  return String(Math.floor(1000 + Math.random() * 9000))
+}
+
 export async function startSession(courseId: string): Promise<CRSSession> {
+  // Auto-close any open sessions for this course
+  await supabase
+    .from('crs_sessions')
+    .update({ ended_at: new Date().toISOString() })
+    .eq('course_id', courseId)
+    .is('ended_at', null)
+
   const { data, error } = await supabase
     .from('crs_sessions')
     .insert({
       course_id: courseId,
       qr_token: generateQRToken(),
+      session_code: generateSessionCode(),
     })
     .select()
     .single()
 
   if (error) throw new Error(`Failed to start session: ${error.message}`)
   if (!data) throw new Error('No data returned after starting session')
+  return data as CRSSession
+}
+
+export async function reopenSession(sessionId: string): Promise<CRSSession> {
+  const { data: row, error: fetchError } = await supabase
+    .from('crs_sessions')
+    .select('course_id')
+    .eq('id', sessionId)
+    .single()
+
+  if (fetchError || !row) throw new Error('Session not found')
+
+  await supabase
+    .from('crs_sessions')
+    .update({ ended_at: new Date().toISOString() })
+    .eq('course_id', (row as { course_id: string }).course_id)
+    .is('ended_at', null)
+    .neq('id', sessionId)
+
+  const { data, error } = await supabase
+    .from('crs_sessions')
+    .update({ ended_at: null })
+    .eq('id', sessionId)
+    .select()
+    .single()
+
+  if (error) throw new Error(`Failed to reopen session: ${error.message}`)
+  if (!data) throw new Error('No data returned after reopening session')
   return data as CRSSession
 }
 

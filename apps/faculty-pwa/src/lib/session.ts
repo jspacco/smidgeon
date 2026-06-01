@@ -12,6 +12,11 @@ export function generateQRToken(): string {
   return crypto.randomUUID()
 }
 
+// Generate a random 4-digit session code (1000–9999)
+export function generateSessionCode(): string {
+  return String(Math.floor(1000 + Math.random() * 9000))
+}
+
 export async function createCourse(
   name: string,
   defaultOptionCount: number,
@@ -44,17 +49,56 @@ export async function enrollInstructor(courseId: string, userId: string): Promis
 }
 
 export async function startSession(courseId: string): Promise<CRSSession> {
+  // Auto-close any open sessions for this course (design: no confirmation)
+  await supabase
+    .from('crs_sessions')
+    .update({ ended_at: new Date().toISOString() })
+    .eq('course_id', courseId)
+    .is('ended_at', null)
+
   const { data, error } = await supabase
     .from('crs_sessions')
     .insert({
       course_id: courseId,
       qr_token: generateQRToken(),
+      session_code: generateSessionCode(),
     })
     .select()
     .single()
 
   if (error) throw new Error(`Failed to start session: ${error.message}`)
   if (!data) throw new Error('No data returned after starting session')
+  return data as CRSSession
+}
+
+export async function reopenSession(sessionId: string): Promise<CRSSession> {
+  // Find the course so we can close other open sessions
+  const { data: row, error: fetchError } = await supabase
+    .from('crs_sessions')
+    .select('course_id')
+    .eq('id', sessionId)
+    .single()
+
+  if (fetchError || !row) throw new Error('Session not found')
+
+  // Close any other open sessions for the course
+  await supabase
+    .from('crs_sessions')
+    .update({ ended_at: new Date().toISOString() })
+    .eq('course_id', (row as { course_id: string }).course_id)
+    .is('ended_at', null)
+    .neq('id', sessionId)
+
+  // Reopen this session
+  const { data, error } = await supabase
+    .from('crs_sessions')
+    .update({ ended_at: null })
+    .eq('id', sessionId)
+    .select()
+    .single()
+
+  if (error) throw new Error(`Failed to reopen session: ${error.message}`)
+  if (!data) throw new Error('No data returned after reopening session')
   return data as CRSSession
 }
 

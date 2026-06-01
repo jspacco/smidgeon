@@ -1,19 +1,35 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 // Types inlined — Deno edge functions can't resolve npm workspace packages
+
 interface ValidateQRRequest {
-  qr_token: string
-  session_id: string
+  qr_token?: string     // UUID from QR scan
+  session_code?: string // 4-digit code typed manually
 }
 
 interface ValidateQRResponse {
   success: boolean
+  session_id?: string
   error?: string
+}
+
+interface SessionRow {
+  id: string
+  qr_token: string
+  session_code: string
+  ended_at: string | null
 }
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+function json(body: ValidateQRResponse, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  })
 }
 
 Deno.serve(async (req: Request) => {
@@ -24,96 +40,102 @@ Deno.serve(async (req: Request) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-    if (!supabaseUrl || !supabaseServiceKey) {
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')
+    if (!supabaseUrl || !supabaseServiceKey || !supabaseAnonKey) {
       throw new Error('Missing Supabase environment variables')
     }
 
-    // Use service role to bypass RLS for attendance write
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
-
-    // Get the authenticated user from the JWT in the Authorization header
+    // Authenticate the student
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Not authenticated' } satisfies ValidateQRResponse),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      return json({ success: false, error: 'Not authenticated' }, 401)
     }
 
-    const anonClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY') ?? '')
+    const anonClient = createClient(supabaseUrl, supabaseAnonKey)
     const { data: { user }, error: authError } = await anonClient.auth.getUser(
       authHeader.replace('Bearer ', '')
     )
     if (authError || !user) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Invalid token' } satisfies ValidateQRResponse),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      return json({ success: false, error: 'Invalid token' }, 401)
     }
+
+    // Use service role for all DB writes (bypasses RLS for attendance)
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
     const body: ValidateQRRequest = await req.json()
-    const { qr_token, session_id } = body
+    const { qr_token, session_code } = body
 
-    if (!qr_token || !session_id) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'qr_token and session_id are required' } satisfies ValidateQRResponse),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+    if (!qr_token && !session_code) {
+      return json({ success: false, error: 'qr_token or session_code is required' }, 400)
     }
 
-    // Verify the session exists, is active, and the qr_token matches
-    const { data: session, error: sessionError } = await supabase
-      .from('crs_sessions')
-      .select('id, qr_token, ended_at')
-      .eq('id', session_id)
-      .single()
+    // Determine entry method and find the session
+    const method: 'QR' | 'CODE' = qr_token ? 'QR' : 'CODE'
+    const scan_token = (qr_token ?? session_code) as string
 
-    if (sessionError || !session) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Session not found' } satisfies ValidateQRResponse),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+    let session: SessionRow | null = null
+
+    if (qr_token) {
+      // QR path: look up by qr_token (globally unique, no session_id needed)
+      const { data, error } = await supabase
+        .from('crs_sessions')
+        .select('id, qr_token, session_code, ended_at')
+        .eq('qr_token', qr_token)
+        .maybeSingle()
+
+      if (error) {
+        console.error('Session lookup error:', error)
+        return json({ success: false, error: 'Failed to look up session' }, 500)
+      }
+      session = data as SessionRow | null
+      if (!session) {
+        return json({ success: false, error: 'Invalid QR code' }, 400)
+      }
+    } else {
+      // Code path: look up active session by session_code
+      const { data, error } = await supabase
+        .from('crs_sessions')
+        .select('id, qr_token, session_code, ended_at')
+        .eq('session_code', session_code)
+        .is('ended_at', null)
+        .maybeSingle()
+
+      if (error) {
+        console.error('Session lookup error:', error)
+        return json({ success: false, error: 'Failed to look up session' }, 500)
+      }
+      session = data as SessionRow | null
+      if (!session) {
+        return json({ success: false, error: 'Invalid session code' }, 400)
+      }
     }
 
+    // Gate: session must be active
     if (session.ended_at !== null) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Session has ended' } satisfies ValidateQRResponse),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      return json({ success: false, error: 'Session has ended' }, 400)
     }
 
-    if (session.qr_token !== qr_token) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Invalid QR code' } satisfies ValidateQRResponse),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // Write attendance — UNIQUE (session_id, user_id) so duplicate scans are safe
+    // Write attendance — UNIQUE (session_id, user_id) makes duplicate scans safe
     const { error: attendanceError } = await supabase
       .from('session_attendance')
       .upsert(
-        { session_id, user_id: user.id, scan_token: qr_token },
+        {
+          session_id: session.id,
+          user_id: user.id,
+          scan_token,
+          method,
+        },
         { onConflict: 'session_id,user_id' }
       )
 
     if (attendanceError) {
       console.error('Attendance write error:', attendanceError)
-      return new Response(
-        JSON.stringify({ success: false, error: 'Failed to record attendance' } satisfies ValidateQRResponse),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      return json({ success: false, error: 'Failed to record attendance' }, 500)
     }
 
-    return new Response(
-      JSON.stringify({ success: true } satisfies ValidateQRResponse),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    return json({ success: true, session_id: session.id })
   } catch (err) {
     console.error('validate-qr error:', err)
-    return new Response(
-      JSON.stringify({ success: false, error: 'Internal server error' } satisfies ValidateQRResponse),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    return json({ success: false, error: 'Internal server error' }, 500)
   }
 })

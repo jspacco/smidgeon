@@ -187,6 +187,22 @@ export function ControllerToolbar({
           {resultsVisible ? 'Hide' : 'Results'}
         </button>
 
+        {/* END — primary session end button, always visible when session active */}
+        <button
+          onClick={onEndSession}
+          disabled={isActive}
+          className={[
+            'flex items-center justify-center px-3 h-10 rounded-lg text-sm font-semibold shrink-0 transition-colors',
+            isActive
+              ? 'bg-red-900 text-red-700 cursor-not-allowed'
+              : 'bg-red-700 hover:bg-red-600 active:bg-red-500 text-white',
+          ].join(' ')}
+          aria-label="End session"
+          title="End session"
+        >
+          END
+        </button>
+
         {/* Gear / settings */}
         <button
           onClick={() => !isActive && setShowSettings((s) => !s)}
@@ -214,7 +230,7 @@ export function ControllerToolbar({
           role="region"
           aria-label="Session settings"
         >
-          {/* Course info */}
+          {/* Course + session info */}
           <div className="space-y-1">
             <p className="text-xs text-gray-400">
               Course: <span className="text-gray-100 font-medium">{course.name}</span>
@@ -223,6 +239,12 @@ export function ControllerToolbar({
               Join:{' '}
               <span className="text-gray-100 font-mono font-bold tracking-widest">
                 {course.join_code}
+              </span>
+            </p>
+            <p className="text-xs text-gray-400">
+              Session code:{' '}
+              <span className="text-gray-100 font-mono font-bold tracking-widest">
+                {session.session_code}
               </span>
             </p>
           </div>
@@ -328,21 +350,6 @@ export function ControllerToolbar({
             </div>
           </div>
 
-          <hr className="border-gray-600" />
-
-          {/* Session controls */}
-          <div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
-              Session
-            </p>
-            <button
-              onClick={onEndSession}
-              className="w-full h-9 rounded-lg bg-red-700 hover:bg-red-600 text-white text-sm font-medium transition-colors"
-              aria-label="End session"
-            >
-              End session
-            </button>
-          </div>
         </div>
       )}
     </div>

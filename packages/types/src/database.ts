@@ -6,6 +6,8 @@ export interface User {
   id: string
   email: string
   name: string
+  theme: string
+  accent: string
   created_at: string
 }
 
@@ -34,6 +36,7 @@ export interface CRSSession {
   started_at: string
   ended_at: string | null
   qr_token: string
+  session_code: string
 }
 
 export interface CRSQuestion {
@@ -67,6 +70,7 @@ export interface SessionAttendance {
   user_id: string
   scanned_at: string
   scan_token: string
+  method: 'QR' | 'CODE' | null
 }
 
 export interface CourseInvitation {

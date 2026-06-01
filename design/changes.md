@@ -1,5 +1,16 @@
 # Changes
 
+## 2026-06-01
+- Added migration 006: ALTER users to add theme (text DEFAULT 'clean' CHECK clean/terminal) and accent (text DEFAULT '#06B6D4'); ALTER crs_sessions to add session_code (text NOT NULL UNIQUE, 4-digit, backfilled random); ALTER session_attendance to add method (text CHECK QR/CODE); one_active_session_per_course index already existed in 001_schema.sql
+- Updated packages/types: User gains theme/accent; CRSSession gains session_code; SessionAttendance gains method; ValidateQRRequest now accepts qr_token? or session_code? (both optional, one required); ValidateQRResponse now returns session_id on success
+- Rewrote supabase/functions/validate-qr: accepts qr_token (looks up by UUID) or session_code (looks up active session by code); records method (QR or CODE) in session_attendance; returns session_id so student PWA can navigate directly into session; no longer requires session_id in request body
+- Updated faculty-pwa and tauri-controller lib/session.ts: added generateSessionCode() (random 1000–9999); startSession() now auto-closes open sessions for the course before inserting, and includes session_code in insert; added reopenSession() (closes other open sessions for course, sets ended_at=null)
+- Rewrote faculty-pwa SessionPage: session_code displayed prominently (SESSION: XXXX) in always-visible bar below header; [Show QR as fullscreen] button opens fullscreen overlay with large QR + code; END SESSION moved to primary button at top of main area (not in settings); settings panel no longer contains End Session; added Attendance section (collapsible) showing enrolled students with ✓ Present or Mark present button for manual attendance
+- Rewrote faculty-pwa CourseHomePage: session list now shows Reopen/End buttons per row; dates formatted as YYYY-MM-DD HH:MM:SS 24-hour; Reopen navigates directly into the reopened session; End refreshes the list in place; imported reopenSession and endSession
+- Rewrote student-pwa CoursesPage: after courses load, fetches active sessions to build liveMap; courses with active sessions show green [LIVE] badge; tapping a live course navigates to /scan with courseId in state; tapping a non-live course goes to CourseHomePage as before
+- Rewrote student-pwa QRScanPage: accepts courseId (not sessionId) from location state; QR/code toggle tabs; code entry is a large 4-digit numeric input; calls validate-qr with qr_token or session_code; on success navigates to /courses/:courseId/session/:sessionId using returned session_id; student CourseHomePage updated to pass courseId (not sessionId) to /scan
+- Updated tauri-controller ControllerToolbar: [END] button added as primary element between Results and ⚙; End Session removed from settings panel; session_code displayed in settings panel (Session code: XXXX)
+
 ## 2026-05-22 (migration consolidation)
 - Replaced all 7 migration files with 5 clean files (001–005); fresh-create style, no ALTER statements, TA included from the start: 001_schema.sql (all tables including course_invitations), 002_helpers.sql (is_enrolled_as + handle_new_user trigger), 003_policies.sql (all RLS policies), 004_realtime.sql (unchanged content), 005_storage.sql (unchanged content)
 
