@@ -18,6 +18,7 @@ supabase/.temp
 
 # Tauri build artifacts
 **/src-tauri/target/
+**/src-tauri/gen/
 
 # OS
 .DS_Store
@@ -39,3 +40,6 @@ pnpm-debug.log*
 
 # tmp file I always create
 OUT
+
+# Don't save my postgres root password
+supabase/.postgres
