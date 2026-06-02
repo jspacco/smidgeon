@@ -2,6 +2,10 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { Button } from '@crs/ui'
 
+// When set, restricts sign-in to accounts from this domain (e.g. 'knox.edu').
+// Leave unset or empty to allow any Google account.
+const ALLOWED_DOMAIN = import.meta.env.VITE_ALLOWED_DOMAIN as string | undefined
+
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -14,15 +18,13 @@ export default function LoginPage() {
         provider: 'google',
         options: {
           redirectTo: `${window.location.origin}/courses`,
-          queryParams: {
-            hd: 'knox.edu',
-          },
+          queryParams: ALLOWED_DOMAIN ? { hd: ALLOWED_DOMAIN } : undefined,
         },
       })
       if (authError) {
         setError(authError.message)
       }
-    } catch (err) {
+    } catch {
       setError('Sign in failed. Please try again.')
     } finally {
       setLoading(false)
@@ -45,7 +47,9 @@ export default function LoginPage() {
           {loading ? 'Signing in…' : 'Sign in with Google'}
         </Button>
 
-        <p className="text-xs text-gray-400 mt-4">@knox.edu accounts only</p>
+        {ALLOWED_DOMAIN && (
+          <p className="text-xs text-gray-400 mt-4">@{ALLOWED_DOMAIN} accounts only</p>
+        )}
 
         {error && (
           <p role="alert" className="mt-4 text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">

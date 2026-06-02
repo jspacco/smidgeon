@@ -20,11 +20,12 @@ export function useCourses(): UseCourseResult {
       setLoading(true)
       setError(null)
       try {
-        // Join enrollments → courses for the current authenticated user
+        // Join enrollments → courses for the current authenticated user.
+        // Show courses for any role (STUDENT, TA, INSTRUCTOR) so faculty
+        // and TAs see their courses when using the student-pwa.
         const { data, error: fetchError } = await supabase
           .from('enrollments')
           .select('course:courses(*)')
-          .eq('role', 'STUDENT')
 
         if (fetchError) throw fetchError
         if (cancelled) return

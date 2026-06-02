@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Button } from '@crs/ui'
 import { signInWithGoogle } from '../lib/auth'
 
+const ALLOWED_DOMAIN = import.meta.env.VITE_ALLOWED_DOMAIN as string | undefined
+
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -45,8 +47,9 @@ export default function LoginPage() {
         {/* Sign-in card */}
         <div className="w-full flex flex-col gap-4">
           <p className="text-center text-gray-700 text-sm">
-            Sign in with your{' '}
-            <span className="font-medium text-blue-600">@knox.edu</span> Google account.
+            {ALLOWED_DOMAIN
+              ? <>Sign in with your <span className="font-medium text-blue-600">@{ALLOWED_DOMAIN}</span> Google account.</>
+              : 'Sign in with your Google account.'}
           </p>
 
           {error && (
@@ -88,9 +91,11 @@ export default function LoginPage() {
           </Button>
         </div>
 
-        <p className="text-xs text-gray-400 text-center">
-          Knox College students and faculty only.
-        </p>
+        {ALLOWED_DOMAIN && (
+          <p className="text-xs text-gray-400 text-center">
+            @{ALLOWED_DOMAIN} accounts only.
+          </p>
+        )}
       </div>
     </main>
   )

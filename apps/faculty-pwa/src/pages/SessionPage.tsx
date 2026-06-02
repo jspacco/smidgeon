@@ -451,18 +451,6 @@ export default function SessionPage() {
           </p>
         )}
 
-        {/* END SESSION — primary button, not in settings */}
-        <Button
-          variant="danger"
-          size="lg"
-          onClick={handleEndSession}
-          disabled={ending || isActive}
-          className="w-full"
-          aria-label="End session"
-        >
-          {ending ? 'Ending session…' : '■  End Session'}
-        </Button>
-
         {/* Question type selector — disabled while active */}
         <QuestionTypeSelector
           value={questionType}
@@ -580,6 +568,25 @@ export default function SessionPage() {
             <p className="text-gray-400 text-sm">No question active. Launch one above.</p>
           </div>
         )}
+
+        {/* END SESSION — bottom of page, away from primary launch controls */}
+        <div className="pt-2">
+          <Button
+            variant="danger"
+            size="lg"
+            onClick={handleEndSession}
+            disabled={ending || isActive}
+            className="w-full"
+            aria-label="End session"
+          >
+            {ending ? 'Ending session…' : '■  End Session'}
+          </Button>
+          {isActive && (
+            <p className="text-xs text-gray-400 text-center mt-1">
+              Stop the active question before ending the session.
+            </p>
+          )}
+        </div>
 
         {/* Attendance section */}
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">

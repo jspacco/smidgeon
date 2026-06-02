@@ -5,10 +5,10 @@ import { launchQuestion, closeQuestion, setResultsVisible, launchRevote, endSess
 import { useCurrentQuestion } from './hooks/useCurrentQuestion'
 import { useLiveResponses } from './hooks/useLiveResponses'
 import { ControllerToolbar } from './components/ControllerToolbar'
-import { LoginView } from './components/LoginView'
 import { SessionSelector } from './components/SessionSelector'
 import { ResultsWindow } from './windows/ResultsWindow'
 import { QRWindow } from './windows/QRWindow'
+import { LoginWindow } from './windows/LoginWindow'
 import type { User } from '@supabase/supabase-js'
 import type { Course, CRSSession, CRSQuestion, QuestionType } from '@crs/types'
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
@@ -33,6 +33,7 @@ function ToolbarApp() {
   const [actionError, setActionError] = useState<string | null>(null)
   const [showRevoteButton, setShowRevoteButton] = useState(false)
   const [resultsWindowOpen, setResultsWindowOpen] = useState(false)
+  const [loginWindowOpen, setLoginWindowOpen] = useState(false)
 
   const { question, isConnected: questionsConnected } = useCurrentQuestion(
     activeSession?.id ?? null,
@@ -61,6 +62,30 @@ function ToolbarApp() {
 
     return () => subscription.unsubscribe()
   }, [])
+
+  // Open login popup when unauthenticated; close it when auth succeeds
+  useEffect(() => {
+    if (loading) return
+
+    if (!user && !loginWindowOpen) {
+      const win = new WebviewWindow('login', {
+        url: '#/login',
+        title: 'CRS — Sign In',
+        width: 480,
+        height: 340,
+        resizable: false,
+        center: true,
+        alwaysOnTop: true,
+      })
+      setLoginWindowOpen(true)
+      win.onCloseRequested(() => setLoginWindowOpen(false))
+    }
+
+    if (user && loginWindowOpen) {
+      WebviewWindow.getByLabel('login').then((win) => win?.close())
+      setLoginWindowOpen(false)
+    }
+  }, [user, loading])
 
   // Sync default option count from selected course
   useEffect(() => {
@@ -198,7 +223,17 @@ function ToolbarApp() {
   }
 
   if (!user) {
-    return <LoginView />
+    // Login window is open as a popup; show minimal placeholder in the toolbar
+    return (
+      <div
+        className="flex items-center justify-center bg-gray-900"
+        style={{ height: 60 }}
+        role="status"
+        aria-live="polite"
+      >
+        <p className="text-xs text-gray-500">CRS Controller — sign-in window open</p>
+      </div>
+    )
   }
 
   if (!activeSession || !selectedCourse) {
@@ -251,6 +286,7 @@ export default function App() {
     <HashRouter>
       <Routes>
         <Route path="/" element={<ToolbarApp />} />
+        <Route path="/login" element={<LoginWindow />} />
         <Route path="/results" element={<ResultsWindow />} />
         <Route path="/qr" element={<QRWindow />} />
       </Routes>

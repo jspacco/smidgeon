@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Button } from '@crs/ui'
 import { signInWithGoogle } from '../lib/auth'
 
+const ALLOWED_DOMAIN = import.meta.env.VITE_ALLOWED_DOMAIN as string | undefined
+
 export function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -47,9 +49,11 @@ export function LoginPage() {
           )}
         </div>
 
-        <p className="text-xs text-gray-400 text-center">
-          Knox accounts only — sign in with your @knox.edu Google account.
-        </p>
+        {ALLOWED_DOMAIN && (
+          <p className="text-xs text-gray-400 text-center">
+            @{ALLOWED_DOMAIN} accounts only.
+          </p>
+        )}
       </div>
     </main>
   )
