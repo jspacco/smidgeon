@@ -18,7 +18,7 @@ export default function QRScanPage() {
   const courseId = state.courseId ?? null
 
   const [scanState, setScanState] = useState<ScanState>('idle')
-  const [entryMode, setEntryMode] = useState<EntryMode>('qr')
+  const [entryMode, setEntryMode] = useState<EntryMode>('code')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [codeInput, setCodeInput] = useState('')
   const [submittingCode, setSubmittingCode] = useState(false)

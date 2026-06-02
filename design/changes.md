@@ -1,12 +1,15 @@
 # Changes
 
+## 2026-06-02 2
+- Changed default for student-pwa to 4-digit code rather than QR code.
+
 ## 2026-06-02
 - Tauri login: replaced inline LoginView in 60px toolbar with a popup WebviewWindow (480×340, centered, alwaysOnTop) at #/login route; added LoginWindow component in src/windows/; toolbar shows a minimal "sign-in window open" placeholder while waiting; main ToolbarApp closes the login window via WebviewWindow.getByLabel('login') when onAuthStateChange fires with a user; LoginView component no longer used for main flow
 - Faculty PWA SessionPage: moved END SESSION button from top of controller area to bottom of page (after attendance section), separated from primary launch controls; added "stop question first" hint when question is active
 - Knox domain restriction: replaced hardcoded 'knox.edu' hd param with VITE_ALLOWED_DOMAIN env var (default unset = allow any Google account); updated faculty-pwa LoginPage, student-pwa auth.ts + LoginPage, faculty-dashboard auth.ts + LoginPage, and tauri-controller LoginWindow; all .env.local files updated with commented-out VITE_ALLOWED_DOMAIN=knox.edu to document the knob
 - Student PWA useCourses: removed .eq('role', 'STUDENT') filter — all enrolled courses now appear in the list regardless of role (STUDENT, TA, INSTRUCTOR), so faculty and TAs using the student-pwa see their courses
 
-## 2026-06-01
+## 2026-06-01 1
 - Added migration 006: ALTER users to add theme (text DEFAULT 'clean' CHECK clean/terminal) and accent (text DEFAULT '#06B6D4'); ALTER crs_sessions to add session_code (text NOT NULL UNIQUE, 4-digit, backfilled random); ALTER session_attendance to add method (text CHECK QR/CODE); one_active_session_per_course index already existed in 001_schema.sql
 - Updated packages/types: User gains theme/accent; CRSSession gains session_code; SessionAttendance gains method; ValidateQRRequest now accepts qr_token? or session_code? (both optional, one required); ValidateQRResponse now returns session_id on success
 - Rewrote supabase/functions/validate-qr: accepts qr_token (looks up by UUID) or session_code (looks up active session by code); records method (QR or CODE) in session_attendance; returns session_id so student PWA can navigate directly into session; no longer requires session_id in request body
