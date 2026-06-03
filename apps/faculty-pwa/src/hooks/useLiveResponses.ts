@@ -21,6 +21,8 @@ export function useLiveResponses(questionId: string | null): UseLiveResponsesRes
   const distributionRef = useRef<Record<string, number>>({})
   // Track free responses in a ref
   const freeResponsesRef = useRef<string[]>([])
+  // Track each user's current response so we can decrement on UPDATE
+  const userResponseRef = useRef<Map<string, string>>(new Map())
 
   useEffect(() => {
     if (!questionId) {
@@ -35,6 +37,7 @@ export function useLiveResponses(questionId: string | null): UseLiveResponsesRes
     respondentSet.current = new Set()
     distributionRef.current = {}
     freeResponsesRef.current = []
+    userResponseRef.current = new Map()
     setRespondentCount(0)
     setDistribution({})
     setFreeResponses([])
@@ -59,6 +62,8 @@ export function useLiveResponses(questionId: string | null): UseLiveResponsesRes
           respondentSet.current.add(r.user_id)
           // Track distribution — count every response row per answer value
           dist[r.response] = (dist[r.response] ?? 0) + 1
+          // Track each user's latest response for UPDATE handling
+          userResponseRef.current.set(r.user_id, r.response)
           // Collect free responses
           freeList.push(r.response)
         }
@@ -91,12 +96,45 @@ export function useLiveResponses(questionId: string | null): UseLiveResponsesRes
           dist[response.response] = (dist[response.response] ?? 0) + 1
           distributionRef.current = { ...dist }
 
+          // Record this user's response
+          userResponseRef.current.set(response.user_id, response.response)
+
           // Append free response
           freeResponsesRef.current = [...freeResponsesRef.current, response.response]
 
           setRespondentCount(respondentSet.current.size)
           setDistribution({ ...distributionRef.current })
           setFreeResponses([...freeResponsesRef.current])
+        },
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'crs_responses',
+          filter: `question_id=eq.${questionId}`,
+        },
+        (payload) => {
+          const response = payload.new as CRSResponse
+          const oldResponse = payload.old as Partial<CRSResponse>
+
+          const dist = distributionRef.current
+
+          // Decrement the old answer if we know what it was
+          const oldAnswer = oldResponse.response ?? userResponseRef.current.get(response.user_id)
+          if (oldAnswer !== undefined && oldAnswer !== response.response) {
+            dist[oldAnswer] = Math.max(0, (dist[oldAnswer] ?? 1) - 1)
+          }
+
+          // Increment the new answer
+          dist[response.response] = (dist[response.response] ?? 0) + 1
+          distributionRef.current = { ...dist }
+
+          // Update this user's tracked response
+          userResponseRef.current.set(response.user_id, response.response)
+
+          setDistribution({ ...distributionRef.current })
         },
       )
       .subscribe((status) => {

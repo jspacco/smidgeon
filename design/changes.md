@@ -1,5 +1,8 @@
 # Changes
 
+## 2026-06-03
+- Fixed faculty-pwa bar chart not updating when a student changes their MCQ vote: added UPDATE event handler to useLiveResponses.ts; handler decrements the old answer and increments the new one using a per-user response map; also added userResponseRef tracking to INSERT handler and initial load for robustness
+
 ## 2026-06-02 2
 - Changed default for student-pwa to 4-digit code rather than QR code.
 
