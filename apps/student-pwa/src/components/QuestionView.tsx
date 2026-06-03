@@ -357,7 +357,7 @@ function FreeResponseView({ question, userId }: QuestionViewProps) {
             : question.multi_answer && submittedAnswers.length > 0
               ? 'Add another response'
               : submittedAnswers.length > 0
-                ? 'Update response'
+                ? 'Submit another response'
                 : 'Submit'}
         </Button>
       </form>
