@@ -48,15 +48,15 @@ export function QRWindow() {
   }
 
   return (
-    <main className="flex flex-col items-center justify-center min-h-screen bg-white p-6">
-      <h1 className="text-base font-bold text-gray-900 mb-1">Scan to mark attendance</h1>
-      <p className="text-xs text-gray-500 mb-6">
-        Students can scan anytime during the session
-      </p>
-      <QRCode value={session.qr_token} size={240} />
-      <p className="text-xs font-mono text-gray-400 mt-4 tracking-wider">
-        {session.qr_token}
-      </p>
+    <main className="flex flex-col items-center justify-center min-h-screen bg-white p-8 gap-6">
+      <h1 className="text-2xl font-bold text-gray-900">Scan to join</h1>
+      <QRCode value={session.qr_token} size={420} />
+      <div className="flex flex-col items-center gap-1">
+        <p className="text-sm text-gray-500">or enter session code</p>
+        <p className="text-6xl font-mono font-bold tracking-widest text-gray-900">
+          {session.session_code}
+        </p>
+      </div>
     </main>
   )
 }

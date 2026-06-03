@@ -191,13 +191,21 @@ function ToolbarApp() {
   }
 
   function handleOpenQR() {
-    new WebviewWindow('qr', {
-      url: '#/qr',
-      title: 'Session QR Code',
-      width: 320,
-      height: 360,
-      resizable: false,
-      alwaysOnTop: true,
+    WebviewWindow.getByLabel('qr').then((existing) => {
+      if (existing) {
+        existing.setFocus()
+        return
+      }
+      new WebviewWindow('qr', {
+        url: '#/qr',
+        title: 'Session QR Code',
+        width: 600,
+        height: 680,
+        minWidth: 400,
+        minHeight: 460,
+        resizable: true,
+        alwaysOnTop: true,
+      })
     })
   }
 

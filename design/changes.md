@@ -1,7 +1,10 @@
 # Changes
 
-## 2026-06-03 5
+## 2026-06-03 6
 - Fixed faculty-pwa bar chart not updating when a student changes their MCQ vote: added UPDATE event handler to useLiveResponses.ts; handler decrements the old answer and increments the new one using a per-user response map; also added userResponseRef tracking to INSERT handler and initial load for robustness
+
+## 2026-06-03 5
+- tauri-controller QR window: increased window to 600×680 (resizable), QR code from 240→420px, session code displayed at text-6xl for projector readability; handleOpenQR now focuses existing window instead of opening a duplicate
 
 ## 2026-06-03 4
 - tauri-controller: added data-tauri-drag-region to non-interactive child elements (info zone div, type label span, timer span, vote count div) — Tauri requires explicit annotation on children; does not propagate from parent
