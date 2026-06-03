@@ -1,7 +1,10 @@
 # Changes
 
-## 2026-06-03 3
+## 2026-06-03 4
 - Fixed faculty-pwa bar chart not updating when a student changes their MCQ vote: added UPDATE event handler to useLiveResponses.ts; handler decrements the old answer and increments the new one using a per-user response map; also added userResponseRef tracking to INSERT handler and initial load for robustness
+
+## 2026-06-03 3
+- tauri-controller: moved data-tauri-drag-region from separate grip div to the main toolbar div; entire toolbar empty space is now draggable; removed grip handle element
 
 ## 2026-06-03 2
 - tauri-controller: added drag handle (data-tauri-drag-region) at left edge of toolbar so the window can be repositioned; no-decorations window had no native drag target before
