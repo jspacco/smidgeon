@@ -81,6 +81,16 @@ export function ControllerToolbar({
         role="toolbar"
         aria-label="CRS Controller"
       >
+        {/* Drag handle — grab here to move the window */}
+        <div
+          data-tauri-drag-region
+          className="flex items-center justify-center w-5 h-10 shrink-0 cursor-move text-gray-600 hover:text-gray-400 select-none"
+          aria-hidden="true"
+          title="Drag to move"
+        >
+          ⠿
+        </div>
+
         {/* QR zone */}
         <button
           onClick={onOpenQR}

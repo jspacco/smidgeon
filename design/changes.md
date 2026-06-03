@@ -1,7 +1,10 @@
 # Changes
 
-## 2026-06-03 2
+## 2026-06-03 3
 - Fixed faculty-pwa bar chart not updating when a student changes their MCQ vote: added UPDATE event handler to useLiveResponses.ts; handler decrements the old answer and increments the new one using a per-user response map; also added userResponseRef tracking to INSERT handler and initial load for robustness
+
+## 2026-06-03 2
+- tauri-controller: added drag handle (data-tauri-drag-region) at left edge of toolbar so the window can be repositioned; no-decorations window had no native drag target before
 
 ## 2026-06-03
 - student-pwa free response button: changed "Update response" to "Submit another response" to accurately reflect that a second submission adds a new row rather than replacing the previous one
