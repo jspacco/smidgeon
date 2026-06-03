@@ -126,10 +126,10 @@ export function ControllerToolbar({
         )}
 
         {/* Info zone — type label + type dropdown + timer */}
-        <div className="flex items-center gap-2 flex-1 min-w-0 px-2">
+        <div data-tauri-drag-region className="flex items-center gap-2 flex-1 min-w-0 px-2">
           {/* Type label or dropdown */}
           {isActive || hasQuestion ? (
-            <span className="text-sm font-medium text-gray-200 truncate">{typeLabel}</span>
+            <span data-tauri-drag-region className="text-sm font-medium text-gray-200 truncate">{typeLabel}</span>
           ) : (
             <label className="sr-only" htmlFor="type-select">
               Question type
@@ -153,7 +153,7 @@ export function ControllerToolbar({
           )}
 
           {/* Count-up timer */}
-          <span className="text-sm font-mono tabular-nums text-gray-300 shrink-0">
+          <span data-tauri-drag-region className="text-sm font-mono tabular-nums text-gray-300 shrink-0">
             <CountUpTimer
               startedAt={currentQuestion?.launched_at ?? null}
               running={isActive}
@@ -163,6 +163,7 @@ export function ControllerToolbar({
 
         {/* Vote count */}
         <div
+          data-tauri-drag-region
           className="shrink-0 text-sm font-semibold text-gray-200 whitespace-nowrap px-2"
           aria-live="polite"
           aria-label={`${respondentCount} voted`}
