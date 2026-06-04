@@ -158,7 +158,7 @@ export default function CourseHomePage() {
             onClick={handleScanQR}
             className="w-full"
           >
-            Scan QR for attendance
+            Scan QR or Enter Code for attendance
           </Button>
         </div>
       )}
