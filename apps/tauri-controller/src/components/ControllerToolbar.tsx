@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { LogicalSize } from '@tauri-apps/api/dpi'
 import { CountUpTimer, ReconnectingIndicator } from '@crs/ui'
@@ -58,8 +58,6 @@ export function ControllerToolbar({
   resultsVisible,
 }: ControllerToolbarProps) {
   const [showSettings, setShowSettings] = useState(false)
-  const [showTypeDropdown, setShowTypeDropdown] = useState(false)
-  const typeDropdownRef = useRef<HTMLDivElement>(null)
 
   // Resize the Tauri window to reveal the settings panel when open
   useEffect(() => {
@@ -70,18 +68,6 @@ export function ControllerToolbar({
       void win.setSize(new LogicalSize(480, 60))
     }
   }, [showSettings])
-
-  // Close type dropdown on outside click
-  useEffect(() => {
-    if (!showTypeDropdown) return
-    function handleClick(e: MouseEvent) {
-      if (typeDropdownRef.current && !typeDropdownRef.current.contains(e.target as Node)) {
-        setShowTypeDropdown(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [showTypeDropdown])
 
   const isActive = currentQuestion?.status === 'ACTIVE'
   const hasQuestion = currentQuestion !== null
@@ -124,51 +110,35 @@ export function ControllerToolbar({
             ■
           </button>
         ) : (
-          <div ref={typeDropdownRef} className="relative shrink-0">
-            <div className="flex">
-              <button
-                onClick={onLaunch}
-                className="flex items-center justify-center w-10 h-10 rounded-l-lg bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-xl font-bold transition-colors"
-                aria-label={`Launch ${TYPE_LABELS[selectedType]} question`}
-                title={`Launch ${TYPE_LABELS[selectedType]}`}
-              >
-                ▶
-              </button>
-              <button
-                onClick={() => setShowTypeDropdown((s) => !s)}
-                className="flex items-center justify-center w-5 h-10 rounded-r-lg bg-green-700 hover:bg-green-600 active:bg-green-800 text-white text-xs transition-colors border-l border-green-500"
-                aria-label="Select question type"
-                aria-haspopup="listbox"
-                aria-expanded={showTypeDropdown}
-              >
-                ▾
-              </button>
-            </div>
-            {showTypeDropdown && (
-              <div
-                className="absolute left-0 top-full mt-1 bg-gray-800 border border-gray-600 rounded-lg shadow-xl z-50 py-1 min-w-36"
-                role="listbox"
-                aria-label="Question type"
-              >
-                {ALL_TYPES.map((t) => (
-                  <button
-                    key={t}
-                    role="option"
-                    aria-selected={selectedType === t}
-                    onClick={() => { onTypeChange(t); setShowTypeDropdown(false) }}
-                    className={[
-                      'flex items-center gap-2 w-full px-3 py-2 text-xs text-left transition-colors hover:bg-gray-700',
-                      selectedType === t ? 'text-white font-semibold' : 'text-gray-300',
-                    ].join(' ')}
-                  >
-                    <span className="w-3 shrink-0" aria-hidden="true">
-                      {selectedType === t ? '✓' : ''}
-                    </span>
-                    {TYPE_LABELS[t]}
-                  </button>
-                ))}
-              </div>
-            )}
+          <div className="flex shrink-0">
+            <button
+              onClick={onLaunch}
+              className="flex items-center justify-center w-10 h-10 rounded-l-lg rounded-r-none bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-xl font-bold transition-colors"
+              aria-label={`Launch ${TYPE_LABELS[selectedType]} question`}
+              title={`Launch ${TYPE_LABELS[selectedType]}`}
+            >
+              ▶
+            </button>
+            {/* Native select — text hidden, custom ▾ via background-image */}
+            <select
+              value={selectedType}
+              onChange={(e) => onTypeChange(e.target.value as QuestionType)}
+              className="h-10 w-6 rounded-r-lg rounded-l-none bg-green-700 hover:bg-green-600 border-l border-green-500 appearance-none cursor-pointer focus:outline-none"
+              style={{
+                color: 'transparent',
+                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='white'/%3E%3C/svg%3E")`,
+                backgroundRepeat: 'no-repeat',
+                backgroundPosition: 'center',
+                backgroundSize: '8px 5px',
+              }}
+              aria-label="Select question type"
+            >
+              {ALL_TYPES.map((t) => (
+                <option key={t} value={t} style={{ color: 'black', backgroundColor: 'white' }}>
+                  {TYPE_LABELS[t]}
+                </option>
+              ))}
+            </select>
           </div>
         )}
 

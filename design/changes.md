@@ -1,5 +1,8 @@
 # Changes
 
+## 2026-06-04 15
+- tauri-controller ControllerToolbar: replaced custom dropdown split button with native HTML select — launch button (rounded-l-lg) + native select (rounded-r-lg, w-6, text-transparent, SVG ▾ background-image, border-l green-500); native select renders outside window bounds on macOS; removed showTypeDropdown state, typeDropdownRef, and outside-click useEffect
+
 ## 2026-06-04 14
 - tauri-controller ControllerToolbar: removed type label entirely from toolbar; info zone now shows timer only; removed unused typeLabel variable
 
