@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import { supabase } from '../lib/supabase'
 import { QRCode } from '@crs/ui'
 import type { CRSSession } from '@crs/types'
@@ -6,6 +7,18 @@ import type { CRSSession } from '@crs/types'
 export function QRWindow() {
   const [session, setSession] = useState<CRSSession | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  // Handle the OS close button — confirm and destroy the window
+  useEffect(() => {
+    const win = getCurrentWindow()
+    let unlisten: (() => void) | undefined
+
+    win.listen('tauri://close-requested', () => {
+      win.close()
+    }).then((fn) => { unlisten = fn })
+
+    return () => { unlisten?.() }
+  }, [])
 
   useEffect(() => {
     async function loadActiveSession() {

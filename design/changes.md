@@ -1,7 +1,10 @@
 # Changes
 
-## 2026-06-04 2
+## 2026-06-04 3
 - Fixed faculty-pwa bar chart not updating when a student changes their MCQ vote: added UPDATE event handler to useLiveResponses.ts; handler decrements the old answer and increments the new one using a per-user response map; also added userResponseRef tracking to INSERT handler and initial load for robustness
+
+## 2026-06-04 2
+- tauri-controller QRWindow: added useEffect listening for tauri://close-requested and calling getCurrentWindow().close(); added core:window:allow-on-close-requested to capabilities/default.json
 
 ## 2026-06-04
 - student-pwa CoursesPage: "My Courses" heading replaced with "{username}'s Courses" using email prefix from useSession
