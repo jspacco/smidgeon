@@ -1,5 +1,8 @@
 # Changes
 
+## 2026-06-04 14
+- tauri-controller ControllerToolbar: removed type label entirely from toolbar; info zone now shows timer only; removed unused typeLabel variable
+
 ## 2026-06-04 13
 - tauri-controller ControllerToolbar: type label in info zone now only shown when question is ACTIVE; hidden when idle (type is already implied by the split button)
 

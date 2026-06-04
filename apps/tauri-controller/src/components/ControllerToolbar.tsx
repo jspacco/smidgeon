@@ -86,11 +86,6 @@ export function ControllerToolbar({
   const isActive = currentQuestion?.status === 'ACTIVE'
   const hasQuestion = currentQuestion !== null
 
-  // Effective type label — show current question's type when active, else selected type
-  const typeLabel = currentQuestion
-    ? TYPE_LABELS[currentQuestion.type]
-    : TYPE_LABELS[selectedType]
-
   return (
     <div className="relative">
       {/* Reconnecting indicator — thin stripe at top when disconnected */}
@@ -189,15 +184,8 @@ export function ControllerToolbar({
           </button>
         )}
 
-        {/* Info zone — type label (active only) + timer */}
-        <div data-tauri-drag-region className="flex items-center gap-2 px-2">
-          {isActive && (
-            <span data-tauri-drag-region className="text-sm font-medium text-gray-200 shrink-0">
-              {typeLabel}
-            </span>
-          )}
-
-          {/* Count-up timer */}
+        {/* Info zone — timer only */}
+        <div data-tauri-drag-region className="flex items-center px-2">
           <span data-tauri-drag-region className="text-sm font-mono tabular-nums text-gray-300 shrink-0">
             <CountUpTimer
               startedAt={currentQuestion?.launched_at ?? null}
