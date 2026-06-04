@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { LogicalSize } from '@tauri-apps/api/dpi'
 import { CountUpTimer, ReconnectingIndicator } from '@crs/ui'
@@ -58,16 +58,30 @@ export function ControllerToolbar({
   resultsVisible,
 }: ControllerToolbarProps) {
   const [showSettings, setShowSettings] = useState(false)
+  const [showTypeDropdown, setShowTypeDropdown] = useState(false)
+  const typeDropdownRef = useRef<HTMLDivElement>(null)
 
   // Resize the Tauri window to reveal the settings panel when open
   useEffect(() => {
     const win = getCurrentWindow()
     if (showSettings) {
-      void win.setSize(new LogicalSize(600, 340))
+      void win.setSize(new LogicalSize(480, 340))
     } else {
-      void win.setSize(new LogicalSize(600, 60))
+      void win.setSize(new LogicalSize(480, 60))
     }
   }, [showSettings])
+
+  // Close type dropdown on outside click
+  useEffect(() => {
+    if (!showTypeDropdown) return
+    function handleClick(e: MouseEvent) {
+      if (typeDropdownRef.current && !typeDropdownRef.current.contains(e.target as Node)) {
+        setShowTypeDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [showTypeDropdown])
 
   const isActive = currentQuestion?.status === 'ACTIVE'
   const hasQuestion = currentQuestion !== null
@@ -104,25 +118,63 @@ export function ControllerToolbar({
           QR
         </button>
 
-        {/* Play/Stop zone */}
+        {/* Launch split button (idle) / Stop button (active) */}
         {isActive ? (
           <button
             onClick={onStop}
-            className="flex items-center justify-center w-12 h-10 rounded-lg bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xl font-bold shrink-0 transition-colors"
+            className="flex items-center justify-center w-14 h-10 rounded-lg bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xl font-bold shrink-0 transition-colors"
             aria-label="Stop question"
             title="Stop current question"
           >
             ■
           </button>
         ) : (
-          <button
-            onClick={onLaunch}
-            className="flex items-center justify-center w-12 h-10 rounded-lg bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-xl font-bold shrink-0 transition-colors"
-            aria-label="Launch question"
-            title="Launch new question"
-          >
-            ▶
-          </button>
+          <div ref={typeDropdownRef} className="relative shrink-0">
+            <div className="flex">
+              <button
+                onClick={onLaunch}
+                className="flex items-center justify-center w-10 h-10 rounded-l-lg bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-xl font-bold transition-colors"
+                aria-label={`Launch ${TYPE_LABELS[selectedType]} question`}
+                title={`Launch ${TYPE_LABELS[selectedType]}`}
+              >
+                ▶
+              </button>
+              <button
+                onClick={() => setShowTypeDropdown((s) => !s)}
+                className="flex items-center justify-center w-5 h-10 rounded-r-lg bg-green-700 hover:bg-green-600 active:bg-green-800 text-white text-xs transition-colors border-l border-green-500"
+                aria-label="Select question type"
+                aria-haspopup="listbox"
+                aria-expanded={showTypeDropdown}
+              >
+                ▾
+              </button>
+            </div>
+            {showTypeDropdown && (
+              <div
+                className="absolute left-0 top-full mt-1 bg-gray-800 border border-gray-600 rounded-lg shadow-xl z-50 py-1 min-w-36"
+                role="listbox"
+                aria-label="Question type"
+              >
+                {ALL_TYPES.map((t) => (
+                  <button
+                    key={t}
+                    role="option"
+                    aria-selected={selectedType === t}
+                    onClick={() => { onTypeChange(t); setShowTypeDropdown(false) }}
+                    className={[
+                      'flex items-center gap-2 w-full px-3 py-2 text-xs text-left transition-colors hover:bg-gray-700',
+                      selectedType === t ? 'text-white font-semibold' : 'text-gray-300',
+                    ].join(' ')}
+                  >
+                    <span className="w-3 shrink-0" aria-hidden="true">
+                      {selectedType === t ? '✓' : ''}
+                    </span>
+                    {TYPE_LABELS[t]}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         )}
 
         {/* Revote button — conditional */}
@@ -137,32 +189,14 @@ export function ControllerToolbar({
           </button>
         )}
 
-        {/* Info zone — type label + type dropdown + timer */}
+        {/* Info zone — type label + timer */}
         <div data-tauri-drag-region className="flex items-center gap-2 px-2">
-          {/* Type label (active only) or screen-reader label (idle) */}
-          {isActive ? (
-            <span data-tauri-drag-region className="text-sm font-medium text-gray-200">{typeLabel}</span>
-          ) : (
-            <label className="sr-only" htmlFor="type-select">
-              Question type
-            </label>
-          )}
-          {!isActive && (
-            <select
-              id="type-select"
-              value={selectedType}
-              onChange={(e) => onTypeChange(e.target.value as QuestionType)}
-              disabled={isActive}
-              className="text-xs bg-gray-800 text-gray-200 border border-gray-600 rounded px-1 py-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-              aria-label="Question type"
-            >
-              {ALL_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {TYPE_LABELS[t]}
-                </option>
-              ))}
-            </select>
-          )}
+          <span
+            data-tauri-drag-region
+            className={`text-sm font-medium shrink-0 ${isActive ? 'text-gray-200' : 'text-gray-500'}`}
+          >
+            {typeLabel}
+          </span>
 
           {/* Count-up timer */}
           <span data-tauri-drag-region className="text-sm font-mono tabular-nums text-gray-300 shrink-0">
