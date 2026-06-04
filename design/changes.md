@@ -1,5 +1,8 @@
 # Changes
 
+## 2026-06-04 8
+- tauri-controller ControllerToolbar: removed flex-1 and min-w-0 from info zone div so all toolbar elements sit tight left-aligned with no empty space; removed truncate from type label span
+
 ## 2026-06-04 7
 - tauri-controller tauri.conf.json: main window set to resizable=false, maximizable=false, minimizable=true; removed minWidth/maxHeight constraints; programmatic setSize() for settings panel still works
 

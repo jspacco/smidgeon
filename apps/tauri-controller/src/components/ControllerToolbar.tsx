@@ -138,10 +138,10 @@ export function ControllerToolbar({
         )}
 
         {/* Info zone — type label + type dropdown + timer */}
-        <div data-tauri-drag-region className="flex items-center gap-2 flex-1 min-w-0 px-2">
+        <div data-tauri-drag-region className="flex items-center gap-2 px-2">
           {/* Type label (active only) or screen-reader label (idle) */}
           {isActive ? (
-            <span data-tauri-drag-region className="text-sm font-medium text-gray-200 truncate">{typeLabel}</span>
+            <span data-tauri-drag-region className="text-sm font-medium text-gray-200">{typeLabel}</span>
           ) : (
             <label className="sr-only" htmlFor="type-select">
               Question type
