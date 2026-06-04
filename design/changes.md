@@ -1,9 +1,12 @@
 # Changes
 
-## 2026-06-03 10
+## 2026-06-04
 - Fixed faculty-pwa bar chart not updating when a student changes their MCQ vote: added UPDATE event handler to useLiveResponses.ts; handler decrements the old answer and increments the new one using a per-user response map; also added userResponseRef tracking to INSERT handler and initial load for robustness
 
 ## 2026-06-03 9
+- faculty-pwa CoursesPage: header now shows "{username}'s Courses" (email prefix) on the left; "+ Create course" and "− Logout" buttons on the right; logout calls supabase.auth.signOut() and redirects to /
+
+## 2026-06-03 10
 - tauri-controller: QR button now toggles the QR window open/closed (was focus-only); Results Hide button now actually closes the results window; END button closes both QR and results windows; QR button turns blue when window is open matching Results button pattern
 
 ## 2026-06-03 8

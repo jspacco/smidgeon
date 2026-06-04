@@ -8,6 +8,13 @@ import type { Course } from '@crs/types'
 export default function CoursesPage() {
   const { user } = useSession()
   const navigate = useNavigate()
+
+  const username = user?.email?.split('@')[0] ?? 'My'
+
+  async function handleLogout() {
+    await supabase.auth.signOut()
+    navigate('/')
+  }
   const [courses, setCourses] = useState<Course[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -55,11 +62,16 @@ export default function CoursesPage() {
 
   return (
     <main className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200 px-4 py-4 flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-900">My Courses</h1>
-        <Button size="sm" onClick={() => navigate('/courses/new')}>
-          + Create course
-        </Button>
+      <header className="bg-white border-b border-gray-200 px-4 py-4 flex items-center justify-between gap-3">
+        <h1 className="text-xl font-bold text-gray-900 truncate">{username}'s Courses</h1>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button size="sm" onClick={() => navigate('/courses/new')}>
+            + Create course
+          </Button>
+          <Button size="sm" variant="secondary" onClick={handleLogout}>
+            − Logout
+          </Button>
+        </div>
       </header>
 
       <div className="px-4 py-4 max-w-lg mx-auto">
