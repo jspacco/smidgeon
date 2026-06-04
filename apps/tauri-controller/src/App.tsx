@@ -119,6 +119,8 @@ function ToolbarApp() {
         selectedType === 'FREE_RESPONSE' ? settings.multiAnswer : false,
       )
       setShowRevoteButton(false)
+      // Close results window from previous question if still open
+      if (resultsWindowOpen) closeResultsWindow()
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Failed to launch question')
     }
