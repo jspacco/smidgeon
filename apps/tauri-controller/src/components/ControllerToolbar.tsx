@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { LogicalSize } from '@tauri-apps/api/dpi'
 import { CountUpTimer, ReconnectingIndicator } from '@crs/ui'
+import { IconChartBar, IconDoorExit } from '@tabler/icons-react'
 import type { Course, CRSSession, CRSQuestion, QuestionType } from '@crs/types'
 
 interface AppSettings {
@@ -189,7 +190,7 @@ export function ControllerToolbar({
           aria-label={resultsVisible ? 'Hide results from students' : 'Show results to students'}
           aria-pressed={resultsVisible}
         >
-          {resultsVisible ? 'Hide' : 'Results'}
+          <IconChartBar size={18} stroke={2} aria-hidden="true" />
         </button>
 
         {/* END — primary session end button, always visible when session active */}
@@ -205,7 +206,7 @@ export function ControllerToolbar({
           aria-label="End session"
           title="End session"
         >
-          END
+          <IconDoorExit size={18} stroke={2} aria-hidden="true" />
         </button>
 
         {/* Gear / settings */}
