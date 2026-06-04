@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { getCurrentWindow } from '@tauri-apps/api/window'
+import { LogicalSize } from '@tauri-apps/api/dpi'
 import { CountUpTimer, ReconnectingIndicator } from '@crs/ui'
 import type { Course, CRSSession, CRSQuestion, QuestionType } from '@crs/types'
 
@@ -26,7 +28,6 @@ export interface ControllerToolbarProps {
   onEndSession: () => void
   showRevoteButton: boolean
   resultsVisible: boolean
-  qrWindowOpen: boolean
 }
 
 const TYPE_LABELS: Record<QuestionType, string> = {
@@ -55,9 +56,18 @@ export function ControllerToolbar({
   onEndSession,
   showRevoteButton,
   resultsVisible,
-  qrWindowOpen,
 }: ControllerToolbarProps) {
   const [showSettings, setShowSettings] = useState(false)
+
+  // Resize the Tauri window to reveal the settings panel when open
+  useEffect(() => {
+    const win = getCurrentWindow()
+    if (showSettings) {
+      void win.setSize(new LogicalSize(700, 340))
+    } else {
+      void win.setSize(new LogicalSize(700, 60))
+    }
+  }, [showSettings])
 
   const isActive = currentQuestion?.status === 'ACTIVE'
   const hasQuestion = currentQuestion !== null
@@ -87,15 +97,9 @@ export function ControllerToolbar({
         {/* QR zone — toggles the QR popup */}
         <button
           onClick={onOpenQR}
-          className={[
-            'flex items-center justify-center w-12 h-10 rounded-lg text-xs font-semibold shrink-0 transition-colors',
-            qrWindowOpen
-              ? 'bg-blue-600 hover:bg-blue-700 text-white'
-              : 'text-gray-300 hover:bg-gray-700 hover:text-white',
-          ].join(' ')}
-          aria-label={qrWindowOpen ? 'Close QR code window' : 'Open QR code window'}
-          aria-pressed={qrWindowOpen}
-          title={qrWindowOpen ? 'Close QR code' : 'Show QR code for student attendance'}
+          className="flex items-center justify-center w-12 h-10 rounded-lg text-xs font-semibold shrink-0 transition-colors text-gray-300 hover:bg-gray-700 hover:text-white"
+          aria-label="Toggle QR code window"
+          title="Show QR code for student attendance"
         >
           QR
         </button>
