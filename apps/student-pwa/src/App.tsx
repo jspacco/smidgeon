@@ -2,10 +2,8 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import { useSession } from './hooks/useSession'
 import LoginPage from './pages/LoginPage'
-import CoursesPage from './pages/CoursesPage'
-import CourseHomePage from './pages/CourseHomePage'
+import LandingPage from './pages/LandingPage'
 import SessionPage from './pages/SessionPage'
-import QRScanPage from './pages/QRScanPage'
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useSession()
@@ -36,7 +34,7 @@ function RootRedirect() {
     )
   }
 
-  return user ? <Navigate to="/courses" replace /> : <LoginPage />
+  return user ? <LandingPage /> : <LoginPage />
 }
 
 export default function App() {
@@ -45,34 +43,10 @@ export default function App() {
       <Routes>
         <Route path="/" element={<RootRedirect />} />
         <Route
-          path="/courses"
-          element={
-            <ProtectedRoute>
-              <CoursesPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/courses/:courseId"
-          element={
-            <ProtectedRoute>
-              <CourseHomePage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
           path="/courses/:courseId/session/:sessionId"
           element={
             <ProtectedRoute>
               <SessionPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/scan"
-          element={
-            <ProtectedRoute>
-              <QRScanPage />
             </ProtectedRoute>
           }
         />

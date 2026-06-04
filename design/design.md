@@ -122,7 +122,7 @@ crs_sessions
   started_at      timestamptz DEFAULT now()
   ended_at        timestamptz nullable
   qr_token        text NOT NULL UNIQUE  -- gates session access AND marks attendance
-  session_code    text NOT NULL UNIQUE  -- short 4-digit text code for faculty-pwa without QR
+  session_code    text NOT NULL UNIQUE  -- short 6-digit text code for faculty-pwa without QR
   -- Constraint: at most one active session per course at any time
   -- Enforced by: CREATE UNIQUE INDEX one_active_session_per_course
   --              ON crs_sessions (course_id) WHERE ended_at IS NULL;
@@ -136,7 +136,7 @@ crs_sessions
 
 **Two access codes per session:**
 - `qr_token` — UUID encoded in QR, displayed in Tauri toolbar popup
-- `session_code` — short 4-digit code, displayed in faculty-pwa, read aloud or put on a slide
+- `session_code` — short 6-digit code, displayed in faculty-pwa, read aloud or put on a slide
 
 ### CRS Questions
 
@@ -209,32 +209,37 @@ GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO service_role;
 
 Students cannot enter an active session without either scanning the QR code or entering the session code. This prevents remote participation.
 
-**Student home screen:**
+**Student home screen (landing page):**
 
 ```
-MY COURSES
+smidgeon
 
-CSCI 241 Databases          [LIVE]
-CSCI 101 Intro CS
-PHYS 201 Mechanics
+[Scan QR code]
 
-JOIN A COURSE: [______] [JOIN]
+─── or enter code ───
+
+[ 000000 ]
+
+[Join session]
 ```
 
-- Enrolled courses shown with [LIVE] badge if active session exists
-- Tapping a live course goes to QR scan screen
-- Tapping a non-live course shows waiting screen
-- Join code input at bottom for first-time enrollment only
+- Single screen shown immediately after login — no course list, no enrollment list
+- QR scan button activates camera inline
+- 6-digit numeric input for code entry
+- Auto-enrollment: validate-qr enrolls the student in the course on first join (role: STUDENT)
+- Session ended: student is returned here with a brief "Session ended" message
+- Students never manually manage course enrollments
 
 **Session entry flow:**
 
 ```
-Student taps [LIVE] course
-→ QR scan screen appears
-→ Student scans QR OR enters 4-digit session code
+Student opens app → landing page
+→ Scans QR OR types 6-digit session code
 → validate-qr edge function validates token/code
+→ Auto-enrolls student in course if not already enrolled
 → session_attendance row created (method: QR or CODE)
 → Student enters session — sees waiting screen or active question
+→ When ended_at set on session → returned to landing page ("Session ended")
 ```
 
 **If student disconnects mid-session:**
@@ -259,17 +264,13 @@ Faculty can mark a student present from the session management UI (accessibility
 **Screens:**
 
 ```
-Home
-  └── List of enrolled courses with [LIVE] badge if active session
-  └── "Join a course" — enter join_code for first enrollment
-
-Course — no active session
-  └── "No active session" waiting screen
-  └── Session history (read only)
-
-Course — active session, not yet entered
-  └── QR scan screen (camera) OR session code entry (4 digits)
-  └── Both gate session access AND mark attendance
+Landing (home)
+  └── App wordmark
+  └── [Scan QR code] button — activates camera inline
+  └── "or enter code" divider
+  └── 6-digit numeric input + [Join session] button
+  └── "Session ended" message if returned from a closed session
+  └── Auto-enrollment handled by validate-qr — no separate join flow
 
 Active Session — waiting
   └── "Waiting for next question" — course name, session datetime
@@ -295,12 +296,13 @@ Free Response
 
 **Student state machine (MCQ):**
 ```
-Not entered → [QR/code scan] → Waiting
+Landing → [QR/6-digit code] → Waiting
 → [Question launched] → Voting (can change freely)
 → [Question closed] → "You voted B. Waiting for results."
 → [Show] → Bar chart visible
 → [Hide] → "You voted B. Waiting for results."
 → [Next question] → Voting
+→ [Session ended] → Landing ("Session ended")
 ```
 
 **PWA features:**
@@ -355,11 +357,11 @@ Active Session View
 ```
 
 **Session code display:**
-- Session code is a short 4-digit code unique to the session
+- Session code is a short 6-digit code unique to the session
 - Displayed prominently in the active session view
 - Faculty can project it, read it aloud, or put it on a slide
 - [Show QR as fullscreen] button shows QR version for students to scan
-- Both QR and 4-digit code do the same thing — gate session entry + mark attendance
+- Both QR and 6-digit code do the same thing — gate session entry + mark attendance
 
 **Settings panel (⚙ — only when no question active):**
 ```
@@ -543,22 +545,21 @@ Screenshots:       [On ●] [Off ○]
 **Two ways students enter a session — both gate access AND mark attendance:**
 
 **QR scan (Tauri):**
-1. Faculty starts session → `qr_token` (UUID) + `session_code` (4 digits) generated
+1. Faculty starts session → `qr_token` (UUID) + `session_code` (6 digits) generated
 2. QR displayed in Tauri popup window
-3. Student taps [LIVE] course → QR scan screen
+3. Student opens app → landing page → taps [Scan QR code]
 4. Camera scans QR via jsQR
-5. `validate-qr` edge function validates token
+5. `validate-qr` edge function validates token, auto-enrolls student
 6. `session_attendance` row created (method: QR)
 7. Student enters session
 
 **Session code (faculty-pwa):**
 1. Same session start — `session_code` displayed prominently in faculty-pwa
 2. Faculty reads it aloud or displays it
-3. Student taps [LIVE] course → scan screen → taps "Enter code instead"
-4. Types 4-digit code
-5. Same `validate-qr` edge function validates code
-6. `session_attendance` row created (method: CODE)
-7. Student enters session
+3. Student opens app → landing page → types 6-digit code
+4. `validate-qr` edge function validates code, auto-enrolls student
+5. `session_attendance` row created (method: CODE)
+6. Student enters session
 
 **Manual attendance:**
 Faculty can mark any enrolled student present from session management UI (accessibility accommodation, late arrival, camera failure).
@@ -594,9 +595,10 @@ Faculty can mark any enrolled student present from session management UI (access
 - Enforces `role = STUDENT` — cannot self-enroll as INSTRUCTOR via this function
 
 **validate-qr:**
-- Validates qr_token OR session_code against active session
+- Validates qr_token OR 6-digit session_code against active session
+- Auto-enrolls student in course as STUDENT if not already enrolled
 - Creates `session_attendance` row
-- Returns session_id so student PWA can subscribe to correct session
+- Returns session_id, course_id, course_name so student PWA can navigate directly
 - Now also gates session access — not just attendance
 
 ---
@@ -681,7 +683,7 @@ smidgeon/
 - [ ] INSTRUCTOR/TA assignment by course owner
 
 **Session management:**
-- [ ] Start session — generates qr_token (UUID) and session_code (4 digits)
+- [ ] Start session — generates qr_token (UUID) and session_code (6 digits)
 - [ ] Auto-close open sessions on new session start
 - [ ] Reopen closed session (sets ended_at = null)
 - [ ] End Session as primary button in faculty-pwa AND Tauri toolbar
@@ -689,11 +691,12 @@ smidgeon/
 - [ ] Session datetime display: YYYY-MM-DD HH:MM:SS 24-hour
 
 **Student session access:**
-- [ ] Home screen shows enrolled courses with [LIVE] badge
-- [ ] Tapping [LIVE] goes to QR scan screen
+- [ ] Landing page: QR scan button + 6-digit code input (no course list)
 - [ ] QR scan gates session entry AND marks attendance
-- [ ] 4-digit session code as alternative to QR scan
-- [ ] validate-qr handles both qr_token and session_code
+- [ ] 6-digit session code as alternative to QR scan
+- [ ] validate-qr auto-enrolls student in course (role: STUDENT)
+- [ ] validate-qr returns course_id and course_name for navigation
+- [ ] Session ended detection: subscribe to crs_sessions, navigate to landing on ended_at
 - [ ] Disconnect reconnects automatically — no re-scan
 - [ ] Faculty manual attendance marking
 

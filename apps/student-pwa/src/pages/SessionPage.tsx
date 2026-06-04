@@ -124,6 +124,35 @@ export default function SessionPage() {
     }
   }, [])
 
+  // Session-ended detection: subscribe to crs_sessions for this session.
+  // When ended_at becomes non-null, kick back to landing page.
+  useEffect(() => {
+    if (!sessionId) return
+
+    const channel = supabase
+      .channel(`session:ended:${sessionId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'crs_sessions',
+          filter: `id=eq.${sessionId}`,
+        },
+        (payload) => {
+          const updated = payload.new as { ended_at: string | null }
+          if (updated.ended_at !== null) {
+            navigate('/', { replace: true, state: { message: 'Session ended' } })
+          }
+        },
+      )
+      .subscribe()
+
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  }, [sessionId, navigate])
+
   // Track own answer for display in "waiting for results" state
   // Listen for changes to crs_responses from this user for this question
   useEffect(() => {

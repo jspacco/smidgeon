@@ -12,9 +12,9 @@ export function generateQRToken(): string {
   return crypto.randomUUID()
 }
 
-// Generate a random 4-digit session code (1000–9999)
+// Generate a random 6-digit session code (100000–999999)
 export function generateSessionCode(): string {
-  return String(Math.floor(1000 + Math.random() * 9000))
+  return String(Math.floor(100000 + Math.random() * 900000))
 }
 
 export async function createCourse(

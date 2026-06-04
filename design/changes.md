@@ -1,5 +1,15 @@
 # Changes
 
+## 2026-06-04 18
+- supabase/migrations/007: backfill any 4-digit session_codes to 6 digits
+- packages/types api.ts: ValidateQRRequest comment updated to 6-digit; ValidateQRResponse adds course_id and course_name fields
+- supabase/functions/validate-qr: updated to 6-digit code comment; auto-enroll student in course (upsert STUDENT enrollment, ignoreDuplicates); fetch course and return course_id/course_name in response; select course_id from session row
+- faculty-pwa and tauri-controller lib/session.ts: generateSessionCode() now returns 6-digit codes (100000–999999)
+- student-pwa: replaced CoursesPage/QRScanPage home flow with new LandingPage — single screen with app wordmark, QR scan button (inline camera), "or enter code" divider, 6-digit numeric input, join button; no course list; no join_code flow
+- student-pwa App.tsx: simplified routing to / (LandingPage) and /courses/:courseId/session/:sessionId (SessionPage); removed /courses, /courses/:courseId, /scan routes
+- student-pwa SessionPage: added crs_sessions Realtime subscription; when ended_at becomes non-null navigates to / with state { message: 'Session ended' }
+- design/design.md: all 4-digit → 6-digit; updated student home screen, session entry flow, state machine, validate-qr edge function description, MVP checklist
+
 ## 2026-06-04 17
 - packages/ui QRCode: added colorDark, colorLight, margin props (all optional, defaults preserve existing behaviour)
 - tauri-controller ControllerToolbar: replaced QR text button with 40×40 miniature QRCode canvas (cyan #06B6D4 on #0D1117, margin 1); clicking still opens full-size QR window
