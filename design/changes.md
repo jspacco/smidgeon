@@ -1,7 +1,10 @@
 # Changes
 
-## 2026-06-03 7
+## 2026-06-03 8
 - Fixed faculty-pwa bar chart not updating when a student changes their MCQ vote: added UPDATE event handler to useLiveResponses.ts; handler decrements the old answer and increments the new one using a per-user response map; also added userResponseRef tracking to INSERT handler and initial load for robustness
+
+## 2026-06-03 7
+- CountUpTimer: added data-tauri-drag-region to its inner span so the timer is draggable in the Tauri toolbar
 
 ## 2026-06-03 6
 - tauri-controller SessionSelector: added data-tauri-drag-region to all three outer divs and non-interactive child elements (p, span); buttons excluded

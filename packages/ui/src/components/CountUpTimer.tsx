@@ -32,7 +32,7 @@ export function CountUpTimer({ startedAt, running }: CountUpTimerProps) {
   }, [running, startedAt])
 
   return (
-    <span className="font-mono tabular-nums" aria-label={`Timer: ${formatSeconds(elapsed)}`}>
+    <span data-tauri-drag-region className="font-mono tabular-nums" aria-label={`Timer: ${formatSeconds(elapsed)}`}>
       {formatSeconds(elapsed)}
     </span>
   )
