@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-06-04 17
+- packages/ui QRCode: added colorDark, colorLight, margin props (all optional, defaults preserve existing behaviour)
+- tauri-controller ControllerToolbar: replaced QR text button with 40×40 miniature QRCode canvas (cyan #06B6D4 on #0D1117, margin 1); clicking still opens full-size QR window
+
 ## 2026-06-04 16
 - tauri-controller: installed @tabler/icons-react; replaced Results button text with IconChartBar and END button text with IconDoorExit (icon-only, aria-labels preserved)
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { LogicalSize } from '@tauri-apps/api/dpi'
-import { CountUpTimer, ReconnectingIndicator } from '@crs/ui'
+import { CountUpTimer, QRCode, ReconnectingIndicator } from '@crs/ui'
 import { IconChartBar, IconDoorExit } from '@tabler/icons-react'
 import type { Course, CRSSession, CRSQuestion, QuestionType } from '@crs/types'
 
@@ -90,14 +90,20 @@ export function ControllerToolbar({
         role="toolbar"
         aria-label="CRS Controller"
       >
-        {/* QR zone — toggles the QR popup */}
+        {/* Mini QR — decorative, clicking opens full-size QR window */}
         <button
           onClick={onOpenQR}
-          className="flex items-center justify-center w-12 h-10 rounded-lg text-xs font-semibold shrink-0 transition-colors text-gray-300 hover:bg-gray-700 hover:text-white"
+          className="flex items-center justify-center w-11 h-11 rounded-lg shrink-0 overflow-hidden hover:ring-2 hover:ring-cyan-500 transition-all"
           aria-label="Toggle QR code window"
           title="Show QR code for student attendance"
         >
-          QR
+          <QRCode
+            value={session.qr_token}
+            size={40}
+            colorDark="#06B6D4"
+            colorLight="#0D1117"
+            margin={1}
+          />
         </button>
 
         {/* Launch split button (idle) / Stop button (active) */}
