@@ -1,5 +1,8 @@
 # Changes
 
+## 2026-06-04 7
+- tauri-controller tauri.conf.json: main window set to resizable=false, maximizable=false, minimizable=true; removed minWidth/maxHeight constraints; programmatic setSize() for settings panel still works
+
 ## 2026-06-04 6
 - tauri-controller ControllerToolbar: resize window to 700×340 when settings panel opens and back to 700×60 when it closes, using getCurrentWindow().setSize(LogicalSize); added core:window:allow-set-size to capabilities/default.json; removed overflow-hidden from ToolbarApp wrapper div in App.tsx
 - tauri-controller ControllerToolbar: removed qrWindowOpen from ControllerToolbarProps and destructured props (App.tsx was already not passing it); QR button reverts to static non-highlighted style
