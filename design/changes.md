@@ -1,5 +1,8 @@
 # Changes
 
+## 2026-06-04 5
+- student-pwa useActiveQuestion: ignore Realtime updates for questions with a lower sequence_number than what is already showing; prevents race condition where the results_visible=false UPDATE on the old question arrives after the new ACTIVE question INSERT, snapping the student back to "waiting for results" mid-vote
+
 ## 2026-06-04 4
 - Fixed faculty-pwa bar chart not updating when a student changes their MCQ vote: added UPDATE event handler to useLiveResponses.ts; handler decrements the old answer and increments the new one using a per-user response map; also added userResponseRef tracking to INSERT handler and initial load for robustness
 
