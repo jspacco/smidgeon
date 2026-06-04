@@ -56,16 +56,16 @@ export function SessionSelector({ user, onSessionStarted }: SessionSelectorProps
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center bg-gray-900 px-4" style={{ height: 60 }}>
-        <p className="text-gray-400 text-sm">Loading courses…</p>
+      <div data-tauri-drag-region className="flex items-center justify-center bg-gray-900 px-4 cursor-move" style={{ height: 60 }}>
+        <p data-tauri-drag-region className="text-gray-400 text-sm">Loading courses…</p>
       </div>
     )
   }
 
   if (courses.length === 0) {
     return (
-      <div className="flex items-center justify-center bg-gray-900 px-4" style={{ height: 60 }}>
-        <p className="text-gray-400 text-sm">
+      <div data-tauri-drag-region className="flex items-center justify-center bg-gray-900 px-4 cursor-move" style={{ height: 60 }}>
+        <p data-tauri-drag-region className="text-gray-400 text-sm">
           No courses found. Create one in the Faculty PWA first.
         </p>
       </div>
@@ -73,10 +73,10 @@ export function SessionSelector({ user, onSessionStarted }: SessionSelectorProps
   }
 
   return (
-    <div className="flex items-center bg-gray-900 px-3 gap-2 overflow-x-auto" style={{ height: 60 }}>
-      <span className="text-xs font-medium text-gray-400 shrink-0">Start session:</span>
+    <div data-tauri-drag-region className="flex items-center bg-gray-900 px-3 gap-2 overflow-x-auto cursor-move" style={{ height: 60 }}>
+      <span data-tauri-drag-region className="text-xs font-medium text-gray-400 shrink-0">Start session:</span>
       {error && (
-        <span role="alert" className="text-xs text-red-400 shrink-0">
+        <span data-tauri-drag-region role="alert" className="text-xs text-red-400 shrink-0">
           {error}
         </span>
       )}
