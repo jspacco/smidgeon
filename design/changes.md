@@ -1,5 +1,8 @@
 # Changes
 
+## 2026-06-04 9
+- tauri-controller: main window width reduced to 520px; setSize calls updated to LogicalSize(520, 340) / LogicalSize(520, 60)
+
 ## 2026-06-04 8
 - tauri-controller ControllerToolbar: removed flex-1 and min-w-0 from info zone div so all toolbar elements sit tight left-aligned with no empty space; removed truncate from type label span
 

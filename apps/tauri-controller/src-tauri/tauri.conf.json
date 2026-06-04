@@ -13,7 +13,7 @@
       {
         "label": "main",
         "title": "CRS Controller",
-        "width": 700,
+        "width": 520,
         "height": 60,
         "resizable": false,
         "maximizable": false,
