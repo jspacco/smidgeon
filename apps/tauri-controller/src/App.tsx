@@ -33,7 +33,6 @@ function ToolbarApp() {
   const [actionError, setActionError] = useState<string | null>(null)
   const [showRevoteButton, setShowRevoteButton] = useState(false)
   const [resultsWindowOpen, setResultsWindowOpen] = useState(false)
-  const [qrWindowOpen, setQrWindowOpen] = useState(false)
   const [loginWindowOpen, setLoginWindowOpen] = useState(false)
 
   const { question, isConnected: questionsConnected } = useCurrentQuestion(
@@ -190,10 +189,10 @@ function ToolbarApp() {
     setResultsWindowOpen(false)
   }
 
-  function handleOpenQR() {
-    if (qrWindowOpen) {
-      WebviewWindow.getByLabel('qr').then((win) => win?.close())
-      setQrWindowOpen(false)
+  async function handleOpenQR() {
+    const existing = await WebviewWindow.getByLabel('qr')
+    if (existing) {
+      await existing.destroy()
       return
     }
     const win = new WebviewWindow('qr', {
@@ -205,9 +204,9 @@ function ToolbarApp() {
       minHeight: 460,
       resizable: true,
       alwaysOnTop: true,
+      closable: true,
     })
-    setQrWindowOpen(true)
-    win.onCloseRequested(() => setQrWindowOpen(false))
+    win.once('tauri://error', (e) => console.error('QR window error:', e))
   }
 
   async function handleEndSession() {
@@ -218,7 +217,6 @@ function ToolbarApp() {
       // Close any open popup windows
       WebviewWindow.getByLabel('qr').then((win) => win?.close())
       WebviewWindow.getByLabel('results').then((win) => win?.close())
-      setQrWindowOpen(false)
       setResultsWindowOpen(false)
       setActiveSession(null)
       setSelectedCourse(null)
@@ -290,7 +288,6 @@ function ToolbarApp() {
         onEndSession={handleEndSession}
         showRevoteButton={showRevoteButton}
         resultsVisible={question?.results_visible ?? false}
-        qrWindowOpen={qrWindowOpen}
       />
     </div>
   )

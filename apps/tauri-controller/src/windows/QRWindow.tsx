@@ -11,12 +11,10 @@ export function QRWindow() {
   // Handle the OS close button — confirm and destroy the window
   useEffect(() => {
     const win = getCurrentWindow()
-    let unlisten: (() => void) | undefined
-
-    win.listen('tauri://close-requested', () => {
-      win.close()
-    }).then((fn) => { unlisten = fn })
-
+    let unlisten: (() => void) | null = null
+    win.listen('tauri://close-requested', async () => {
+      await win.destroy()
+    }).then(fn => { unlisten = fn })
     return () => { unlisten?.() }
   }, [])
 
