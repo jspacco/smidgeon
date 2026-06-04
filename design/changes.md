@@ -1,5 +1,8 @@
 # Changes
 
+## 2026-06-04 10
+- tauri-controller: main window width set to 640px; setSize calls updated to match
+
 ## 2026-06-04 9
 - tauri-controller: main window width reduced to 520px; setSize calls updated to LogicalSize(520, 340) / LogicalSize(520, 60)
 
