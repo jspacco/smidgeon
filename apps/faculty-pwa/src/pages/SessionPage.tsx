@@ -8,11 +8,14 @@ import {
   launchRevote,
   endSession,
 } from '../lib/session'
+import { acquireWakeLock, releaseWakeLock } from '../lib/wakeLock'
 import { useCurrentQuestion } from '../hooks/useCurrentQuestion'
 import { useLiveResponses } from '../hooks/useLiveResponses'
 import { Button, BarChart, CountUpTimer, ReconnectingIndicator, QRCode } from '@crs/ui'
 import { QuestionTypeSelector } from '../components/QuestionTypeSelector'
-import type { Course, CRSSession, QuestionType } from '@crs/types'
+import type { Course, CRSSession, CRSQuestion, QuestionType } from '@crs/types'
+
+type ViewMode = 'monitor' | 'control'
 
 interface Settings {
   optionCount: number
@@ -26,6 +29,12 @@ interface AttendeeRow {
   attended: boolean
 }
 
+const TYPE_LABELS: Record<CRSQuestion['type'], string> = {
+  MCQ_SINGLE: 'MCQ Single',
+  MCQ_MULTI: 'MCQ Multi',
+  FREE_RESPONSE: 'Free Response',
+}
+
 function buildDistribution(rawDist: Record<string, number>, optionCount: number): Record<string, number> {
   const labels = ['A', 'B', 'C', 'D', 'E'].slice(0, optionCount)
   const result: Record<string, number> = {}
@@ -35,7 +44,6 @@ function buildDistribution(rawDist: Record<string, number>, optionCount: number)
   return result
 }
 
-// Format as YYYY-MM-DD HH:MM:SS in local 24-hour time
 function formatDatetime(iso: string): string {
   const d = new Date(iso)
   const pad = (n: number) => String(n).padStart(2, '0')
@@ -46,6 +54,7 @@ export default function SessionPage() {
   const { courseId, sessionId } = useParams<{ courseId: string; sessionId: string }>()
   const navigate = useNavigate()
 
+  const [mode, setMode] = useState<ViewMode>('monitor')
   const [course, setCourse] = useState<Course | null>(null)
   const [session, setSession] = useState<CRSSession | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -62,7 +71,6 @@ export default function SessionPage() {
   const [stopping, setStopping] = useState(false)
   const [ending, setEnding] = useState(false)
 
-  // Attendance state
   const [attendees, setAttendees] = useState<AttendeeRow[]>([])
   const [showAttendance, setShowAttendance] = useState(false)
   const [markingPresent, setMarkingPresent] = useState<string | null>(null)
@@ -74,6 +82,16 @@ export default function SessionPage() {
   const isConnected = questionsConnected && (question === null || responsesConnected)
   const isActive = question?.status === 'ACTIVE'
   const isClosed = question?.status === 'CLOSED'
+
+  // Wake lock: keep screen on in monitor mode
+  useEffect(() => {
+    if (mode !== 'monitor') {
+      void releaseWakeLock()
+      return
+    }
+    void acquireWakeLock()
+    return () => { void releaseWakeLock() }
+  }, [mode])
 
   // Sync resultsVisible from realtime question state
   useEffect(() => {
@@ -174,7 +192,7 @@ export default function SessionPage() {
         prev.map((a) => (a.user_id === userId ? { ...a, attended: true } : a))
       )
     } catch {
-      // Non-critical — no toast needed
+      // Non-critical
     } finally {
       setMarkingPresent(null)
     }
@@ -305,36 +323,70 @@ export default function SessionPage() {
       )}
 
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-2 min-w-0">
-          <button
-            onClick={() => navigate(`/courses/${courseId}`)}
-            className="text-blue-600 font-medium text-sm shrink-0"
-            aria-label="Back to course"
-          >
-            ←
-          </button>
-          <h1 className="text-base font-bold text-gray-900 truncate">
-            {course?.name ?? 'Loading…'}
-          </h1>
-        </div>
+      <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-2 shrink-0">
         <button
-          onClick={() => setShowSettings((s) => !s)}
-          disabled={isActive}
-          aria-label="Settings"
-          aria-expanded={showSettings}
-          className={[
-            'text-xl px-2 py-1 rounded-lg transition-colors',
-            isActive
-              ? 'text-gray-300 cursor-not-allowed'
-              : 'text-gray-600 hover:bg-gray-100',
-          ].join(' ')}
+          onClick={() => navigate(`/courses/${courseId}`)}
+          className="text-blue-600 font-medium text-sm shrink-0"
+          aria-label="Back to course"
         >
-          ⚙
+          ←
         </button>
+        <h1 className="text-base font-bold text-gray-900 truncate flex-1 min-w-0">
+          {course?.name ?? 'Loading…'}
+        </h1>
+
+        {/* Monitor / Control toggle */}
+        <div
+          className="flex rounded-lg border border-gray-200 overflow-hidden shrink-0"
+          role="group"
+          aria-label="View mode"
+        >
+          <button
+            onClick={() => setMode('monitor')}
+            aria-pressed={mode === 'monitor'}
+            className={[
+              'px-3 py-1.5 text-xs font-semibold transition-colors',
+              mode === 'monitor'
+                ? 'bg-blue-600 text-white'
+                : 'bg-white text-gray-600 hover:bg-gray-50',
+            ].join(' ')}
+          >
+            Monitor
+          </button>
+          <button
+            onClick={() => setMode('control')}
+            aria-pressed={mode === 'control'}
+            className={[
+              'px-3 py-1.5 text-xs font-semibold transition-colors border-l border-gray-200',
+              mode === 'control'
+                ? 'bg-blue-600 text-white'
+                : 'bg-white text-gray-600 hover:bg-gray-50',
+            ].join(' ')}
+          >
+            Control
+          </button>
+        </div>
+
+        {/* Settings gear — control mode only */}
+        {mode === 'control' && (
+          <button
+            onClick={() => setShowSettings((s) => !s)}
+            disabled={isActive}
+            aria-label="Settings"
+            aria-expanded={showSettings}
+            className={[
+              'text-xl px-2 py-1 rounded-lg transition-colors shrink-0',
+              isActive
+                ? 'text-gray-300 cursor-not-allowed'
+                : 'text-gray-600 hover:bg-gray-100',
+            ].join(' ')}
+          >
+            ⚙
+          </button>
+        )}
       </header>
 
-      {/* Session code + QR — always visible */}
+      {/* Session code bar — always visible */}
       {session && (
         <div className="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between shrink-0">
           <div>
@@ -352,7 +404,6 @@ export default function SessionPage() {
               onClick={() => setShowFullscreenQR(true)}
               className="flex flex-col items-center justify-center w-14 h-12 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors text-xs font-medium text-gray-700"
               aria-label="Show QR code fullscreen"
-              title="Show QR as fullscreen"
             >
               <span className="text-base" aria-hidden="true">⬛</span>
               <span className="text-xs leading-none">QR</span>
@@ -361,8 +412,8 @@ export default function SessionPage() {
         </div>
       )}
 
-      {/* Settings panel — inline, not modal */}
-      {showSettings && (
+      {/* Settings panel — control mode only */}
+      {mode === 'control' && showSettings && (
         <section
           className="bg-white border-b border-gray-200 px-4 py-4 space-y-4 shrink-0"
           aria-label="Session settings"
@@ -443,203 +494,308 @@ export default function SessionPage() {
         </section>
       )}
 
-      {/* Main controller area */}
-      <div className="flex-1 flex flex-col px-4 py-4 gap-4 max-w-lg mx-auto w-full">
-        {actionError && (
-          <p role="alert" className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">
-            {actionError}
-          </p>
-        )}
+      {/* ── MONITOR MODE ─────────────────────────────────────────────────────── */}
+      {mode === 'monitor' && (
+        <div className="flex-1 flex flex-col min-h-0">
 
-        {/* Question type selector — disabled while active */}
-        <QuestionTypeSelector
-          value={questionType}
-          onChange={setQuestionType}
-          disabled={isActive}
-        />
-
-        {/* Primary action button */}
-        {isActive ? (
-          <Button
-            variant="danger"
-            size="lg"
-            onClick={handleStop}
-            disabled={stopping}
-            className="w-full text-xl py-5"
-            aria-label="Stop question"
-          >
-            {stopping ? 'Stopping…' : '■  Stop'}
-          </Button>
-        ) : (
-          <Button
-            size="lg"
-            onClick={handleLaunch}
-            disabled={launching}
-            className="w-full text-xl py-5 bg-green-600 hover:bg-green-700 active:bg-green-800"
-            aria-label={getLaunchLabel()}
-          >
-            {getLaunchLabel()}
-          </Button>
-        )}
-
-        {/* Secondary action row: Revote + Show/Hide */}
-        <div className="flex gap-3">
-          {showRevoteButton && question && (
-            <Button
-              variant="secondary"
-              size="md"
-              onClick={handleRevote}
-              disabled={launching}
-              className="flex-1"
-              aria-label="Launch revote"
-            >
-              ↺ Revote
-            </Button>
-          )}
-          {(isActive || isClosed) && question && (
-            <Button
-              variant="secondary"
-              size="md"
-              onClick={handleToggleResults}
-              disabled={isActive}
-              className="flex-1"
-              aria-label={resultsVisible ? 'Hide results from students' : 'Show results to students'}
-            >
-              {resultsVisible ? '👁 Hide results' : '👁 Show results'}
-            </Button>
-          )}
-        </div>
-
-        {/* Timer + vote count */}
-        {(isActive || isClosed) && question && (
-          <div className="flex items-center gap-3 px-1">
-            <span className="text-2xl font-mono tabular-nums text-gray-800">
-              <CountUpTimer
-                startedAt={question.launched_at}
-                running={isActive}
-              />
-            </span>
-            <span className="text-gray-400">•</span>
-            <span
-              className="text-lg font-semibold text-gray-700"
-              aria-live="polite"
-              aria-label={`${respondentCount} voted`}
-            >
-              {respondentCount} voted
-            </span>
+          {/* Question info row */}
+          <div className="px-5 pt-3 pb-1 shrink-0">
+            {question ? (
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-600">
+                  {TYPE_LABELS[question.type]}
+                  {' · '}Q{question.sequence_number}
+                  {question.is_revote ? ' (Revote)' : ''}
+                </span>
+                <span className="text-2xl font-mono tabular-nums text-gray-800">
+                  <CountUpTimer startedAt={question.launched_at} running={isActive} />
+                </span>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400">No active question</p>
+            )}
           </div>
-        )}
 
-        {/* Live results — always visible to instructor */}
-        {question && isMCQ && (
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <BarChart
-              data={chartData}
-              total={respondentCount}
-            />
-          </div>
-        )}
+          {/* Chart / responses — takes most of screen */}
+          <div className="flex-1 px-4 py-2 min-h-0">
+            {question && isMCQ && (
+              <div className="h-full bg-white rounded-xl border border-gray-200 p-4">
+                <BarChart data={chartData} total={respondentCount} />
+              </div>
+            )}
 
-        {question && !isMCQ && freeResponses.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-              Free responses
-            </p>
-            <ul
-              className="space-y-2 max-h-64 overflow-y-auto"
-              aria-label="Free responses"
-              aria-live="polite"
-            >
-              {freeResponses.map((resp, i) => (
-                <li
-                  key={i}
-                  className="text-sm text-gray-800 bg-gray-50 rounded-lg px-3 py-2 break-words"
-                >
-                  {resp}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {/* Idle state hint */}
-        {!question && !isActive && (
-          <div className="text-center py-4">
-            <p className="text-gray-400 text-sm">No question active. Launch one above.</p>
-          </div>
-        )}
-
-        {/* END SESSION — bottom of page, away from primary launch controls */}
-        <div className="pt-2">
-          <Button
-            variant="danger"
-            size="lg"
-            onClick={handleEndSession}
-            disabled={ending || isActive}
-            className="w-full"
-            aria-label="End session"
-          >
-            {ending ? 'Ending session…' : '■  End Session'}
-          </Button>
-          {isActive && (
-            <p className="text-xs text-gray-400 text-center mt-1">
-              Stop the active question before ending the session.
-            </p>
-          )}
-        </div>
-
-        {/* Attendance section */}
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <button
-            className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
-            onClick={() => setShowAttendance((s) => !s)}
-            aria-expanded={showAttendance}
-          >
-            <span>Attendance</span>
-            <span className="text-xs text-gray-400">
-              {attendees.length > 0
-                ? `${attendees.filter((a) => a.attended).length} / ${attendees.length} present`
-                : ''}
-              {showAttendance ? ' ▲' : ' ▼'}
-            </span>
-          </button>
-
-          {showAttendance && (
-            <div className="border-t border-gray-100 px-4 py-3">
-              {attendees.length === 0 && (
-                <p className="text-sm text-gray-400 text-center py-2">
-                  Loading…
-                </p>
-              )}
-              <ul className="space-y-2 max-h-64 overflow-y-auto">
-                {attendees.map((a) => (
-                  <li
-                    key={a.user_id}
-                    className="flex items-center justify-between gap-2"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">{a.name}</p>
-                      <p className="text-xs text-gray-400 truncate">{a.email}</p>
-                    </div>
-                    {a.attended ? (
-                      <span className="text-xs font-semibold text-green-600 shrink-0">✓ Present</span>
-                    ) : (
-                      <button
-                        onClick={() => void handleMarkPresent(a.user_id)}
-                        disabled={markingPresent === a.user_id}
-                        className="text-xs font-medium text-blue-600 hover:text-blue-800 shrink-0 disabled:opacity-50"
-                        aria-label={`Mark ${a.name} present`}
+            {question && !isMCQ && (
+              <div className="h-full bg-white rounded-xl border border-gray-200 p-4 overflow-y-auto">
+                {freeResponses.length > 0 ? (
+                  <ul className="space-y-2" aria-label="Free responses" aria-live="polite">
+                    {freeResponses.map((resp, i) => (
+                      <li
+                        key={i}
+                        className="text-sm text-gray-800 bg-gray-50 rounded-lg px-3 py-2 break-words"
                       >
-                        {markingPresent === a.user_id ? 'Marking…' : 'Mark present'}
-                      </button>
-                    )}
+                        {resp}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-gray-400 text-sm text-center pt-8">No responses yet.</p>
+                )}
+              </div>
+            )}
+
+            {!question && (
+              <div className="h-full flex items-center justify-center">
+                <div className="text-center space-y-3">
+                  <div
+                    className="w-10 h-10 border-4 border-gray-200 border-t-gray-400 rounded-full animate-spin mx-auto"
+                    aria-hidden="true"
+                  />
+                  <p className="text-gray-400 text-base">Waiting for next question…</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Vote count */}
+          <div className="px-5 py-2 shrink-0">
+            {question && (
+              <p
+                className="text-lg font-semibold text-gray-700"
+                aria-live="polite"
+                aria-label={`${respondentCount} voted`}
+              >
+                {respondentCount} voted
+              </p>
+            )}
+          </div>
+
+          {/* Bottom action buttons — only when question is CLOSED */}
+          {isClosed && question && (
+            <div className="px-4 pt-2 pb-8 flex gap-3 shrink-0">
+              <div className="flex-1 flex flex-col items-center gap-1">
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  className="w-full"
+                  onClick={handleRevote}
+                  disabled={!showRevoteButton || launching}
+                  aria-label="Launch revote"
+                >
+                  ↺ Revote
+                </Button>
+                <p className="text-xs text-gray-400">needs discussion</p>
+              </div>
+              <div className="flex-1 flex flex-col items-center gap-1">
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  className={[
+                    'w-full',
+                    resultsVisible ? 'border-blue-500 text-blue-700 bg-blue-50' : '',
+                  ].join(' ')}
+                  onClick={handleToggleResults}
+                  aria-label={resultsVisible ? 'Hide results from students' : 'Show results to students'}
+                >
+                  {resultsVisible ? '👁 Hide results' : '👁 Show results'}
+                </Button>
+                <p className="text-xs text-gray-400">
+                  {resultsVisible ? 'results shown' : 'clear answer'}
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── CONTROL MODE ─────────────────────────────────────────────────────── */}
+      {mode === 'control' && (
+        <div className="flex-1 flex flex-col px-4 py-4 gap-4 max-w-lg mx-auto w-full">
+          {actionError && (
+            <p role="alert" className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">
+              {actionError}
+            </p>
+          )}
+
+          {/* Bar chart — above controls, live updates */}
+          {question && isMCQ && (
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <BarChart data={chartData} total={respondentCount} />
+            </div>
+          )}
+
+          {/* Timer + vote count */}
+          {(isActive || isClosed) && question && (
+            <div className="flex items-center gap-3 px-1">
+              <span className="text-2xl font-mono tabular-nums text-gray-800">
+                <CountUpTimer startedAt={question.launched_at} running={isActive} />
+              </span>
+              <span className="text-gray-400">•</span>
+              <span
+                className="text-lg font-semibold text-gray-700"
+                aria-live="polite"
+                aria-label={`${respondentCount} voted`}
+              >
+                {respondentCount} voted
+              </span>
+            </div>
+          )}
+
+          {/* Free responses */}
+          {question && !isMCQ && freeResponses.length > 0 && (
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                Free responses
+              </p>
+              <ul
+                className="space-y-2 max-h-64 overflow-y-auto"
+                aria-label="Free responses"
+                aria-live="polite"
+              >
+                {freeResponses.map((resp, i) => (
+                  <li
+                    key={i}
+                    className="text-sm text-gray-800 bg-gray-50 rounded-lg px-3 py-2 break-words"
+                  >
+                    {resp}
                   </li>
                 ))}
               </ul>
             </div>
           )}
+
+          {/* Question type selector */}
+          <QuestionTypeSelector
+            value={questionType}
+            onChange={setQuestionType}
+            disabled={isActive}
+          />
+
+          {/* Primary action button */}
+          {isActive ? (
+            <Button
+              variant="danger"
+              size="lg"
+              onClick={handleStop}
+              disabled={stopping}
+              className="w-full text-xl py-5"
+              aria-label="Stop question"
+            >
+              {stopping ? 'Stopping…' : '■  Stop'}
+            </Button>
+          ) : (
+            <Button
+              size="lg"
+              onClick={handleLaunch}
+              disabled={launching}
+              className="w-full text-xl py-5 bg-green-600 hover:bg-green-700 active:bg-green-800"
+              aria-label={getLaunchLabel()}
+            >
+              {getLaunchLabel()}
+            </Button>
+          )}
+
+          {/* Secondary action row: Revote + Show/Hide */}
+          <div className="flex gap-3">
+            {showRevoteButton && question && (
+              <Button
+                variant="secondary"
+                size="md"
+                onClick={handleRevote}
+                disabled={launching}
+                className="flex-1"
+                aria-label="Launch revote"
+              >
+                ↺ Revote
+              </Button>
+            )}
+            {(isActive || isClosed) && question && (
+              <Button
+                variant="secondary"
+                size="md"
+                onClick={handleToggleResults}
+                disabled={isActive}
+                className="flex-1"
+                aria-label={resultsVisible ? 'Hide results from students' : 'Show results to students'}
+              >
+                {resultsVisible ? '👁 Hide results' : '👁 Show results'}
+              </Button>
+            )}
+          </div>
+
+          {/* Idle state hint */}
+          {!question && (
+            <div className="text-center py-4">
+              <p className="text-gray-400 text-sm">No question active. Launch one above.</p>
+            </div>
+          )}
+
+          {/* END SESSION */}
+          <div className="pt-2">
+            <Button
+              variant="danger"
+              size="lg"
+              onClick={handleEndSession}
+              disabled={ending || isActive}
+              className="w-full"
+              aria-label="End session"
+            >
+              {ending ? 'Ending session…' : '■  End Session'}
+            </Button>
+            {isActive && (
+              <p className="text-xs text-gray-400 text-center mt-1">
+                Stop the active question before ending the session.
+              </p>
+            )}
+          </div>
+
+          {/* Attendance section */}
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <button
+              className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+              onClick={() => setShowAttendance((s) => !s)}
+              aria-expanded={showAttendance}
+            >
+              <span>Attendance</span>
+              <span className="text-xs text-gray-400">
+                {attendees.length > 0
+                  ? `${attendees.filter((a) => a.attended).length} / ${attendees.length} present`
+                  : ''}
+                {showAttendance ? ' ▲' : ' ▼'}
+              </span>
+            </button>
+
+            {showAttendance && (
+              <div className="border-t border-gray-100 px-4 py-3">
+                {attendees.length === 0 && (
+                  <p className="text-sm text-gray-400 text-center py-2">Loading…</p>
+                )}
+                <ul className="space-y-2 max-h-64 overflow-y-auto">
+                  {attendees.map((a) => (
+                    <li key={a.user_id} className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{a.name}</p>
+                        <p className="text-xs text-gray-400 truncate">{a.email}</p>
+                      </div>
+                      {a.attended ? (
+                        <span className="text-xs font-semibold text-green-600 shrink-0">✓ Present</span>
+                      ) : (
+                        <button
+                          onClick={() => void handleMarkPresent(a.user_id)}
+                          disabled={markingPresent === a.user_id}
+                          className="text-xs font-medium text-blue-600 hover:text-blue-800 shrink-0 disabled:opacity-50"
+                          aria-label={`Mark ${a.name} present`}
+                        >
+                          {markingPresent === a.user_id ? 'Marking…' : 'Mark present'}
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </main>
   )
 }

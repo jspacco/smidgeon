@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-06-04 19
+- faculty-pwa: added lib/wakeLock.ts (acquireWakeLock/releaseWakeLock using navigator.wakeLock API)
+- faculty-pwa SessionPage: redesigned as base station — Monitor/Control toggle in header; Monitor mode is immersive (full-screen chart, vote count, Revote + Show/Hide results bottom buttons); Control mode preserves existing controls with bar chart moved above launch section; wake lock acquired in monitor mode, released in control mode; settings gear hidden in monitor mode
+
 ## 2026-06-04 18
 - supabase/migrations/007: backfill any 4-digit session_codes to 6 digits
 - packages/types api.ts: ValidateQRRequest comment updated to 6-digit; ValidateQRResponse adds course_id and course_name fields
