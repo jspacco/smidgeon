@@ -1,5 +1,8 @@
 # Changes
 
+## 2026-06-04 13
+- tauri-controller ControllerToolbar: type label in info zone now only shown when question is ACTIVE; hidden when idle (type is already implied by the split button)
+
 ## 2026-06-04 12
 - tauri-controller ControllerToolbar: replaced standalone type selector + plain launch button with VS Code-style split button — main ▶ (rounded-l-lg) launches current type, chevron ▾ (rounded-r-lg) opens type dropdown with checkmark on selected type; active state shows solid red ■ with no chevron; type label in info zone always visible (dimmed when idle); outside-click closes dropdown; window width reduced to 480px
 

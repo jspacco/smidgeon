@@ -189,14 +189,13 @@ export function ControllerToolbar({
           </button>
         )}
 
-        {/* Info zone — type label + timer */}
+        {/* Info zone — type label (active only) + timer */}
         <div data-tauri-drag-region className="flex items-center gap-2 px-2">
-          <span
-            data-tauri-drag-region
-            className={`text-sm font-medium shrink-0 ${isActive ? 'text-gray-200' : 'text-gray-500'}`}
-          >
-            {typeLabel}
-          </span>
+          {isActive && (
+            <span data-tauri-drag-region className="text-sm font-medium text-gray-200 shrink-0">
+              {typeLabel}
+            </span>
+          )}
 
           {/* Count-up timer */}
           <span data-tauri-drag-region className="text-sm font-mono tabular-nums text-gray-300 shrink-0">
