@@ -26,6 +26,7 @@ export interface ControllerToolbarProps {
   onEndSession: () => void
   showRevoteButton: boolean
   resultsVisible: boolean
+  qrWindowOpen: boolean
 }
 
 const TYPE_LABELS: Record<QuestionType, string> = {
@@ -54,6 +55,7 @@ export function ControllerToolbar({
   onEndSession,
   showRevoteButton,
   resultsVisible,
+  qrWindowOpen,
 }: ControllerToolbarProps) {
   const [showSettings, setShowSettings] = useState(false)
 
@@ -82,12 +84,18 @@ export function ControllerToolbar({
         role="toolbar"
         aria-label="CRS Controller"
       >
-        {/* QR zone */}
+        {/* QR zone — toggles the QR popup */}
         <button
           onClick={onOpenQR}
-          className="flex items-center justify-center w-12 h-10 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors text-xs font-semibold shrink-0"
-          aria-label="Open QR code window"
-          title="Show QR code for student attendance"
+          className={[
+            'flex items-center justify-center w-12 h-10 rounded-lg text-xs font-semibold shrink-0 transition-colors',
+            qrWindowOpen
+              ? 'bg-blue-600 hover:bg-blue-700 text-white'
+              : 'text-gray-300 hover:bg-gray-700 hover:text-white',
+          ].join(' ')}
+          aria-label={qrWindowOpen ? 'Close QR code window' : 'Open QR code window'}
+          aria-pressed={qrWindowOpen}
+          title={qrWindowOpen ? 'Close QR code' : 'Show QR code for student attendance'}
         >
           QR
         </button>

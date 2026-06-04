@@ -33,6 +33,7 @@ function ToolbarApp() {
   const [actionError, setActionError] = useState<string | null>(null)
   const [showRevoteButton, setShowRevoteButton] = useState(false)
   const [resultsWindowOpen, setResultsWindowOpen] = useState(false)
+  const [qrWindowOpen, setQrWindowOpen] = useState(false)
   const [loginWindowOpen, setLoginWindowOpen] = useState(false)
 
   const { question, isConnected: questionsConnected } = useCurrentQuestion(
@@ -185,28 +186,28 @@ function ToolbarApp() {
   }
 
   function closeResultsWindow() {
+    WebviewWindow.getByLabel('results').then((win) => win?.close())
     setResultsWindowOpen(false)
-    // The WebviewWindow close is handled by the user; we only need to toggle the DB flag
-    // (already done via handleToggleResults calling setResultsVisible(false))
   }
 
   function handleOpenQR() {
-    WebviewWindow.getByLabel('qr').then((existing) => {
-      if (existing) {
-        existing.setFocus()
-        return
-      }
-      new WebviewWindow('qr', {
-        url: '#/qr',
-        title: 'Session QR Code',
-        width: 600,
-        height: 680,
-        minWidth: 400,
-        minHeight: 460,
-        resizable: true,
-        alwaysOnTop: true,
-      })
+    if (qrWindowOpen) {
+      WebviewWindow.getByLabel('qr').then((win) => win?.close())
+      setQrWindowOpen(false)
+      return
+    }
+    const win = new WebviewWindow('qr', {
+      url: '#/qr',
+      title: 'Session QR Code',
+      width: 600,
+      height: 680,
+      minWidth: 400,
+      minHeight: 460,
+      resizable: true,
+      alwaysOnTop: true,
     })
+    setQrWindowOpen(true)
+    win.onCloseRequested(() => setQrWindowOpen(false))
   }
 
   async function handleEndSession() {
@@ -214,6 +215,11 @@ function ToolbarApp() {
     setActionError(null)
     try {
       await endSession(activeSession.id)
+      // Close any open popup windows
+      WebviewWindow.getByLabel('qr').then((win) => win?.close())
+      WebviewWindow.getByLabel('results').then((win) => win?.close())
+      setQrWindowOpen(false)
+      setResultsWindowOpen(false)
       setActiveSession(null)
       setSelectedCourse(null)
       setShowRevoteButton(false)
@@ -284,6 +290,7 @@ function ToolbarApp() {
         onEndSession={handleEndSession}
         showRevoteButton={showRevoteButton}
         resultsVisible={question?.results_visible ?? false}
+        qrWindowOpen={qrWindowOpen}
       />
     </div>
   )

@@ -1,7 +1,10 @@
 # Changes
 
-## 2026-06-03 9
+## 2026-06-03 10
 - Fixed faculty-pwa bar chart not updating when a student changes their MCQ vote: added UPDATE event handler to useLiveResponses.ts; handler decrements the old answer and increments the new one using a per-user response map; also added userResponseRef tracking to INSERT handler and initial load for robustness
+
+## 2026-06-03 9
+- tauri-controller: QR button now toggles the QR window open/closed (was focus-only); Results Hide button now actually closes the results window; END button closes both QR and results windows; QR button turns blue when window is open matching Results button pattern
 
 ## 2026-06-03 8
 - tauri-controller: removed redundant type label span shown alongside dropdown after question closes; label now only shows when question is active (dropdown hidden)
