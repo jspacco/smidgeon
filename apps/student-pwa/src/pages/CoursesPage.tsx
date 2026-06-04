@@ -3,12 +3,15 @@ import { useNavigate } from 'react-router-dom'
 import type { JoinCourseResponse } from '@crs/types'
 import { Button } from '@crs/ui'
 import { useCourses } from '../hooks/useCourses'
+import { useSession } from '../hooks/useSession'
 import { supabase } from '../lib/supabase'
 import { signOut } from '../lib/auth'
 
 export default function CoursesPage() {
   const navigate = useNavigate()
+  const { user } = useSession()
   const { courses, loading, error: coursesError } = useCourses()
+  const username = user?.email?.split('@')[0] ?? 'My'
   const [joinCode, setJoinCode] = useState('')
   const [joinError, setJoinError] = useState<string | null>(null)
   const [joinLoading, setJoinLoading] = useState(false)
@@ -75,7 +78,7 @@ export default function CoursesPage() {
   return (
     <main className="min-h-screen bg-gray-50 px-4 py-6 max-w-lg mx-auto">
       <header className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-bold text-gray-900">My Courses</h1>
+        <h1 className="text-xl font-bold text-gray-900">{username}'s Courses</h1>
         <button
           onClick={() => void handleSignOut()}
           className="text-sm text-gray-500 hover:text-gray-700"

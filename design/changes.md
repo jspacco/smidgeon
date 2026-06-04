@@ -1,7 +1,10 @@
 # Changes
 
-## 2026-06-04
+## 2026-06-04 2
 - Fixed faculty-pwa bar chart not updating when a student changes their MCQ vote: added UPDATE event handler to useLiveResponses.ts; handler decrements the old answer and increments the new one using a per-user response map; also added userResponseRef tracking to INSERT handler and initial load for robustness
+
+## 2026-06-04
+- student-pwa CoursesPage: "My Courses" heading replaced with "{username}'s Courses" using email prefix from useSession
 
 ## 2026-06-03 9
 - faculty-pwa CoursesPage: header now shows "{username}'s Courses" (email prefix) on the left; "+ Create course" and "− Logout" buttons on the right; logout calls supabase.auth.signOut() and redirects to /
