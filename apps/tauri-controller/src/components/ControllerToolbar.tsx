@@ -63,9 +63,9 @@ export function ControllerToolbar({
   useEffect(() => {
     const win = getCurrentWindow()
     if (showSettings) {
-      void win.setSize(new LogicalSize(640, 340))
+      void win.setSize(new LogicalSize(600, 340))
     } else {
-      void win.setSize(new LogicalSize(640, 60))
+      void win.setSize(new LogicalSize(600, 60))
     }
   }, [showSettings])
 
