@@ -1,5 +1,8 @@
 # Changes
 
+## 2026-06-05 7
+- tauri-controller ControllerToolbar + SessionSelector: added permanent 16px drag handle (IconGripVertical, cursor-move, text-gray-600/hover:gray-400, data-tauri-drag-region) as leftmost element in toolbar row; additive — all existing drag regions preserved
+
 ## 2026-06-05 6
 - tauri-controller ControllerToolbar + SessionSelector: added title attributes to all icon-only buttons (QR, launch, stop, revote, results/hide toggle, end, gear, +, logout); results button title reflects current state
 

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { LogicalSize } from '@tauri-apps/api/dpi'
 import { CountUpTimer, QRCode, ReconnectingIndicator } from '@crs/ui'
-import { IconChartBar, IconDoorExit } from '@tabler/icons-react'
+import { IconChartBar, IconDoorExit, IconGripVertical } from '@tabler/icons-react'
 import type { Course, CRSSession, CRSQuestion, QuestionType } from '@crs/types'
 
 interface AppSettings {
@@ -90,6 +90,16 @@ export function ControllerToolbar({
         role="toolbar"
         aria-label="CRS Controller"
       >
+        {/* Drag handle */}
+        <div
+          data-tauri-drag-region
+          className="flex items-center justify-center w-4 shrink-0 cursor-move select-none text-gray-600 hover:text-gray-400"
+          style={{ height: 60 }}
+          aria-hidden="true"
+        >
+          <IconGripVertical data-tauri-drag-region size={14} />
+        </div>
+
         {/* Mini QR — decorative, clicking opens full-size QR window */}
         <button
           onClick={onOpenQR}

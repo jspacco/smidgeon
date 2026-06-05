@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { LogicalSize } from '@tauri-apps/api/dpi'
-import { IconPlayerPlay, IconLogout, IconPlus } from '@tabler/icons-react'
+import { IconPlayerPlay, IconLogout, IconPlus, IconGripVertical } from '@tabler/icons-react'
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { supabase } from '../lib/supabase'
 import { startSession, reopenSession, createCourse, enrollInstructor } from '../lib/session'
@@ -183,6 +183,14 @@ export function SessionSelector({ user, onSessionStarted }: SessionSelectorProps
         className="flex items-center bg-gray-900 px-3 gap-2"
         style={{ height: 60 }}
       >
+        <div
+          data-tauri-drag-region
+          className="flex items-center justify-center w-4 shrink-0 cursor-move select-none text-gray-600 hover:text-gray-400"
+          style={{ height: 60 }}
+          aria-hidden="true"
+        >
+          <IconGripVertical data-tauri-drag-region size={14} />
+        </div>
         <p data-tauri-drag-region className="text-gray-400 text-sm">
           Loading courses…
         </p>
@@ -198,6 +206,16 @@ export function SessionSelector({ user, onSessionStarted }: SessionSelectorProps
         className="flex items-center px-3 gap-2"
         style={{ height: 60 }}
       >
+        {/* Drag handle */}
+        <div
+          data-tauri-drag-region
+          className="flex items-center justify-center w-4 shrink-0 cursor-move select-none text-gray-600 hover:text-gray-400"
+          style={{ height: 60 }}
+          aria-hidden="true"
+        >
+          <IconGripVertical data-tauri-drag-region size={14} />
+        </div>
+
         {courses.length === 0 ? (
           <p data-tauri-drag-region className="text-gray-400 text-sm">
             No courses yet — create one with +
