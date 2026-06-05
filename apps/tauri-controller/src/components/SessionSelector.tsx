@@ -264,6 +264,7 @@ export function SessionSelector({ user, onSessionStarted }: SessionSelectorProps
           ].join(' ')}
           aria-label="Create course"
           aria-expanded={showCreatePanel}
+          data-tooltip="Create new course"
         >
           <IconPlus size={18} />
         </button>
@@ -273,6 +274,7 @@ export function SessionSelector({ user, onSessionStarted }: SessionSelectorProps
           onClick={handleLogout}
           className={iconButtonClass}
           aria-label="Logout"
+          data-tooltip="Sign out"
         >
           <IconLogout size={18} />
         </button>

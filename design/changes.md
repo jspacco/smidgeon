@@ -1,5 +1,10 @@
 # Changes
 
+## 2026-06-05 5
+- tauri-controller index.css: added CSS tooltip rule via [data-tooltip]::before — dark bg #1f2937, border #374151, 11px monospace, appears above element with 120ms fade
+- tauri-controller ControllerToolbar: replaced title attributes with data-tooltip on QR, launch, stop, revote, results, end, gear buttons
+- tauri-controller SessionSelector: added data-tooltip to + and logout buttons
+
 ## 2026-06-05 4
 - tauri-controller SessionSelector: added data-tauri-drag-region to create panel container, course name label and wrapper div, MCQ options label and row div, actions row div
 

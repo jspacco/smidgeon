@@ -8,3 +8,33 @@ body {
   user-select: none;
   -webkit-user-select: none;
 }
+
+/* CSS tooltips — shown above the element on hover */
+[data-tooltip] {
+  position: relative;
+}
+
+[data-tooltip]::before {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-family: ui-monospace, 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #f3f4f6;
+  background: #1f2937;
+  border: 1px solid #374151;
+  border-radius: 4px;
+  padding: 3px 7px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 120ms ease;
+  z-index: 9999;
+}
+
+[data-tooltip]:hover::before {
+  opacity: 1;
+}
