@@ -97,7 +97,7 @@ export function ControllerToolbar({
           style={{ height: 60 }}
           aria-hidden="true"
         >
-          <IconGripVertical data-tauri-drag-region size={14} />
+          <IconGripVertical size={14} style={{ pointerEvents: 'none' }} />
         </div>
 
         {/* Mini QR — decorative, clicking opens full-size QR window */}

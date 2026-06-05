@@ -189,7 +189,7 @@ export function SessionSelector({ user, onSessionStarted }: SessionSelectorProps
           style={{ height: 60 }}
           aria-hidden="true"
         >
-          <IconGripVertical data-tauri-drag-region size={14} />
+          <IconGripVertical size={14} style={{ pointerEvents: 'none' }} />
         </div>
         <p data-tauri-drag-region className="text-gray-400 text-sm">
           Loading courses…
@@ -213,7 +213,7 @@ export function SessionSelector({ user, onSessionStarted }: SessionSelectorProps
           style={{ height: 60 }}
           aria-hidden="true"
         >
-          <IconGripVertical data-tauri-drag-region size={14} />
+          <IconGripVertical size={14} style={{ pointerEvents: 'none' }} />
         </div>
 
         {courses.length === 0 ? (
