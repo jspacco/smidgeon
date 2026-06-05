@@ -1,5 +1,8 @@
 # Changes
 
+## 2026-06-04 21
+- faculty-pwa App.tsx RootRedirect: on login, query for active session across all INSTRUCTOR/TA courses; if found, navigate directly to that session; if none, fall through to /courses as before
+
 ## 2026-06-04 20
 - tauri-controller SessionSelector: rewrote as course+session dual-select row; course select lists INSTRUCTOR courses; session select loads newest-first (limit 10) with [OPEN] badge for active sessions and "— new session —" as first option; [▶] button calls startSession for new or reopenSession for existing; IconLogout button on right calls signOut + closes qr/results windows; data-tauri-drag-region on all non-interactive elements
 
