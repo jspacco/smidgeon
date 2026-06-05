@@ -1,7 +1,7 @@
 # Changes
 
 ## 2026-06-04 20
-- tauri-controller SessionSelector: rewrote as course+session dual-select row; course select lists INSTRUCTOR courses; session select loads newest-first (limit 10) with [OPEN] badge for active sessions and "— new session —" as first option; [▶ Join] button calls startSession for new or reopenSession for existing; IconLogout button on right calls signOut + closes qr/results windows; data-tauri-drag-region on all non-interactive elements
+- tauri-controller SessionSelector: rewrote as course+session dual-select row; course select lists INSTRUCTOR courses; session select loads newest-first (limit 10) with [OPEN] badge for active sessions and "— new session —" as first option; [▶] button calls startSession for new or reopenSession for existing; IconLogout button on right calls signOut + closes qr/results windows; data-tauri-drag-region on all non-interactive elements
 
 ## 2026-06-04 19
 - faculty-pwa: added lib/wakeLock.ts (acquireWakeLock/releaseWakeLock using navigator.wakeLock API)

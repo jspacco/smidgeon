@@ -19,9 +19,7 @@ Two changes for resilience when faculty app closes unexpectedly:
    WHERE status = 'ACTIVE'
    AND launched_at < now() - interval '15 minutes';
 
-## Unenroll from course
-
-## Archive course
+## Faculty Archive course
 
 ## Sign out Button
 

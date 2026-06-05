@@ -189,15 +189,14 @@ export function SessionSelector({ user, onSessionStarted }: SessionSelectorProps
         ))}
       </select>
 
-      {/* Join button */}
+      {/* Start/join button */}
       <button
         onClick={handleJoin}
         disabled={joining || !selectedCourseId}
-        className="flex items-center gap-1 px-3 h-9 rounded bg-green-600 hover:bg-green-500 text-white text-sm font-medium shrink-0 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        aria-label={joining ? 'Joining…' : 'Join session'}
+        className="flex items-center justify-center w-10 h-10 rounded bg-green-600 hover:bg-green-500 text-white shrink-0 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        aria-label={joining ? 'Starting session…' : 'Start session'}
       >
-        <IconPlayerPlay size={14} />
-        {joining ? 'Joining…' : 'Join'}
+        <IconPlayerPlay size={22} />
       </button>
 
       {/* Inline error */}
