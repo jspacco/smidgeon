@@ -1,5 +1,8 @@
 # Changes
 
+## 2026-06-05 4
+- tauri-controller SessionSelector: added data-tauri-drag-region to create panel container, course name label and wrapper div, MCQ options label and row div, actions row div
+
 ## 2026-06-05 3
 - tauri-controller SessionSelector: create panel uses requestAnimationFrame + scrollHeight to auto-size window to exact content height; course and session selects both capped at max-w-[160px] to keep logout button always visible
 

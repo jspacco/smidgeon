@@ -280,10 +280,10 @@ export function SessionSelector({ user, onSessionStarted }: SessionSelectorProps
 
       {/* Create course panel */}
       {showCreatePanel && (
-        <div className="px-4 py-3 border-t border-gray-700 space-y-3">
+        <div data-tauri-drag-region className="px-4 py-3 border-t border-gray-700 space-y-3">
           {/* Course name */}
-          <div>
-            <label htmlFor="create-course-name" className="block text-xs text-gray-400 mb-1">
+          <div data-tauri-drag-region>
+            <label data-tauri-drag-region htmlFor="create-course-name" className="block text-xs text-gray-400 mb-1">
               Course name
             </label>
             <input
@@ -300,8 +300,8 @@ export function SessionSelector({ user, onSessionStarted }: SessionSelectorProps
           </div>
 
           {/* MCQ option count */}
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-gray-400 shrink-0">MCQ options</span>
+          <div data-tauri-drag-region className="flex items-center gap-3">
+            <span data-tauri-drag-region className="text-xs text-gray-400 shrink-0">MCQ options</span>
             <div className="flex gap-2" role="radiogroup" aria-label="Default MCQ option count">
               {([2, 3, 4, 5] as const).map((n) => (
                 <label
@@ -335,7 +335,7 @@ export function SessionSelector({ user, onSessionStarted }: SessionSelectorProps
           )}
 
           {/* Actions */}
-          <div className="flex gap-2">
+          <div data-tauri-drag-region className="flex gap-2">
             <button
               onClick={handleCreate}
               disabled={creating}
