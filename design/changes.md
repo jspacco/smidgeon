@@ -1,5 +1,8 @@
 # Changes
 
+## 2026-06-05 3
+- tauri-controller SessionSelector: create panel uses requestAnimationFrame + scrollHeight to auto-size window to exact content height; course and session selects both capped at max-w-[160px] to keep logout button always visible
+
 ## 2026-06-05 2
 - tauri-controller SessionSelector: course select capped at max-w-[180px] to prevent long names expanding toolbar; create panel window height increased from 200→280px so Create/Cancel buttons are not clipped
 

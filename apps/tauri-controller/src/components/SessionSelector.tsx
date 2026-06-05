@@ -46,11 +46,14 @@ export function SessionSelector({ user, onSessionStarted }: SessionSelectorProps
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
 
-  // Resize window when create panel opens/closes
+  // Resize window to fit content when create panel opens/closes
   useEffect(() => {
     const win = getCurrentWindow()
     if (showCreatePanel) {
-      void win.setSize(new LogicalSize(480, 280))
+      requestAnimationFrame(() => {
+        const height = document.body.scrollHeight
+        void win.setSize(new LogicalSize(480, Math.max(60, height)))
+      })
     } else {
       void win.setSize(new LogicalSize(480, 60))
     }
@@ -205,7 +208,7 @@ export function SessionSelector({ user, onSessionStarted }: SessionSelectorProps
             <select
               value={selectedCourseId}
               onChange={(e) => setSelectedCourseId(e.target.value)}
-              className={`${SELECT_CLASS} max-w-[180px]`}
+              className={`${SELECT_CLASS} max-w-[160px]`}
               disabled={joining}
               aria-label="Select course"
             >
@@ -220,7 +223,7 @@ export function SessionSelector({ user, onSessionStarted }: SessionSelectorProps
             <select
               value={selectedSessionId}
               onChange={(e) => setSelectedSessionId(e.target.value)}
-              className={SELECT_CLASS}
+              className={`${SELECT_CLASS} max-w-[160px]`}
               disabled={joining || sessionsLoading}
               aria-label="Select session"
             >
