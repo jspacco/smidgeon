@@ -50,7 +50,7 @@ export function SessionSelector({ user, onSessionStarted }: SessionSelectorProps
   useEffect(() => {
     const win = getCurrentWindow()
     if (showCreatePanel) {
-      void win.setSize(new LogicalSize(480, 200))
+      void win.setSize(new LogicalSize(480, 280))
     } else {
       void win.setSize(new LogicalSize(480, 60))
     }
@@ -205,7 +205,7 @@ export function SessionSelector({ user, onSessionStarted }: SessionSelectorProps
             <select
               value={selectedCourseId}
               onChange={(e) => setSelectedCourseId(e.target.value)}
-              className={SELECT_CLASS}
+              className={`${SELECT_CLASS} max-w-[180px]`}
               disabled={joining}
               aria-label="Select course"
             >

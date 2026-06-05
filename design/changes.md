@@ -1,5 +1,8 @@
 # Changes
 
+## 2026-06-05 2
+- tauri-controller SessionSelector: course select capped at max-w-[180px] to prevent long names expanding toolbar; create panel window height increased from 200→280px so Create/Cancel buttons are not clipped
+
 ## 2026-06-05
 - tauri-controller lib/session.ts: added generateJoinCode, createCourse, enrollInstructor (ported from faculty-pwa)
 - tauri-controller SessionSelector: added + button (IconPlus) that expands window to 480×200 and shows create course panel; panel has course name input, MCQ option count radio buttons (styled same as settings panel), Create/Cancel buttons; on success adds course to dropdown and auto-selects it; + button is opacity-50 when panel is open; "no courses" state updated to prompt using +
