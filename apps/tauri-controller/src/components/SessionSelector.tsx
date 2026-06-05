@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
-import { IconPlayerPlay, IconLogout } from '@tabler/icons-react'
+import { getCurrentWindow } from '@tauri-apps/api/window'
+import { LogicalSize } from '@tauri-apps/api/dpi'
+import { IconPlayerPlay, IconLogout, IconPlus } from '@tabler/icons-react'
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { supabase } from '../lib/supabase'
-import { startSession, reopenSession } from '../lib/session'
+import { startSession, reopenSession, createCourse, enrollInstructor } from '../lib/session'
 import type { User } from '@supabase/supabase-js'
 import type { Course, CRSSession } from '@crs/types'
 
@@ -36,6 +38,23 @@ export function SessionSelector({ user, onSessionStarted }: SessionSelectorProps
   const [sessionsLoading, setSessionsLoading] = useState(false)
   const [joining, setJoining] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Create panel state
+  const [showCreatePanel, setShowCreatePanel] = useState(false)
+  const [createName, setCreateName] = useState('')
+  const [createOptionCount, setCreateOptionCount] = useState<2 | 3 | 4 | 5>(5)
+  const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
+
+  // Resize window when create panel opens/closes
+  useEffect(() => {
+    const win = getCurrentWindow()
+    if (showCreatePanel) {
+      void win.setSize(new LogicalSize(480, 200))
+    } else {
+      void win.setSize(new LogicalSize(480, 60))
+    }
+  }, [showCreatePanel])
 
   // Load courses where user is INSTRUCTOR
   useEffect(() => {
@@ -111,11 +130,48 @@ export function SessionSelector({ user, onSessionStarted }: SessionSelectorProps
     }
   }
 
+  async function handleCreate() {
+    if (!createName.trim()) {
+      setCreateError('Course name is required')
+      return
+    }
+    setCreating(true)
+    setCreateError(null)
+    try {
+      const course = await createCourse(createName.trim(), createOptionCount, user.id)
+      await enrollInstructor(course.id, user.id)
+      // Add to list and auto-select
+      setCourses((prev) => [course, ...prev])
+      setSelectedCourseId(course.id)
+      setSessions([])
+      setSelectedSessionId('new')
+      // Reset form and close panel
+      setCreateName('')
+      setCreateOptionCount(5)
+      setShowCreatePanel(false)
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : 'Failed to create course')
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  function handleCancelCreate() {
+    setCreateName('')
+    setCreateOptionCount(5)
+    setCreateError(null)
+    setShowCreatePanel(false)
+  }
+
   async function handleLogout() {
     await supabase.auth.signOut()
     WebviewWindow.getByLabel('qr').then((w) => w?.close())
     WebviewWindow.getByLabel('results').then((w) => w?.close())
   }
+
+  const iconButtonClass =
+    'flex items-center justify-center w-9 h-9 rounded text-gray-400 hover:text-gray-200 ' +
+    'hover:bg-gray-700 transition-colors shrink-0'
 
   if (loading) {
     return (
@@ -131,93 +187,169 @@ export function SessionSelector({ user, onSessionStarted }: SessionSelectorProps
     )
   }
 
-  if (courses.length === 0) {
-    return (
+  return (
+    <div className="bg-gray-900">
+      {/* Toolbar row */}
       <div
         data-tauri-drag-region
-        className="flex items-center bg-gray-900 px-3 gap-2"
+        className="flex items-center px-3 gap-2"
         style={{ height: 60 }}
       >
-        <p data-tauri-drag-region className="text-gray-400 text-sm">
-          No courses found. Create one in the Faculty PWA first.
-        </p>
+        {courses.length === 0 ? (
+          <p data-tauri-drag-region className="text-gray-400 text-sm">
+            No courses yet — create one with +
+          </p>
+        ) : (
+          <>
+            {/* Course select */}
+            <select
+              value={selectedCourseId}
+              onChange={(e) => setSelectedCourseId(e.target.value)}
+              className={SELECT_CLASS}
+              disabled={joining}
+              aria-label="Select course"
+            >
+              {courses.map((course) => (
+                <option key={course.id} value={course.id}>
+                  {course.name}
+                </option>
+              ))}
+            </select>
+
+            {/* Session select */}
+            <select
+              value={selectedSessionId}
+              onChange={(e) => setSelectedSessionId(e.target.value)}
+              className={SELECT_CLASS}
+              disabled={joining || sessionsLoading}
+              aria-label="Select session"
+            >
+              <option value="new">— new session —</option>
+              {sessions.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {formatSessionLabel(s)}
+                </option>
+              ))}
+            </select>
+
+            {/* Start/join button */}
+            <button
+              onClick={handleJoin}
+              disabled={joining || !selectedCourseId}
+              className="flex items-center justify-center w-10 h-10 rounded bg-green-600 hover:bg-green-500 text-white shrink-0 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-label={joining ? 'Starting session…' : 'Start session'}
+            >
+              <IconPlayerPlay size={22} />
+            </button>
+
+            {/* Inline error */}
+            {error && (
+              <span role="alert" data-tauri-drag-region className="text-xs text-red-400 shrink-0 truncate max-w-36">
+                {error}
+              </span>
+            )}
+          </>
+        )}
+
+        {/* + Create course — suppressed when panel open */}
+        <button
+          onClick={() => setShowCreatePanel((s) => !s)}
+          className={[
+            iconButtonClass,
+            'ml-auto',
+            showCreatePanel ? 'opacity-50' : '',
+          ].join(' ')}
+          aria-label="Create course"
+          aria-expanded={showCreatePanel}
+        >
+          <IconPlus size={18} />
+        </button>
+
+        {/* Logout */}
         <button
           onClick={handleLogout}
-          className="ml-auto flex items-center justify-center w-9 h-9 rounded text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors shrink-0"
+          className={iconButtonClass}
           aria-label="Logout"
         >
           <IconLogout size={18} />
         </button>
       </div>
-    )
-  }
 
-  return (
-    <div
-      data-tauri-drag-region
-      className="flex items-center bg-gray-900 px-3 gap-2"
-      style={{ height: 60 }}
-    >
-      {/* Course select */}
-      <select
-        value={selectedCourseId}
-        onChange={(e) => setSelectedCourseId(e.target.value)}
-        className={SELECT_CLASS}
-        disabled={joining}
-        aria-label="Select course"
-      >
-        {courses.map((course) => (
-          <option key={course.id} value={course.id}>
-            {course.name}
-          </option>
-        ))}
-      </select>
+      {/* Create course panel */}
+      {showCreatePanel && (
+        <div className="px-4 py-3 border-t border-gray-700 space-y-3">
+          {/* Course name */}
+          <div>
+            <label htmlFor="create-course-name" className="block text-xs text-gray-400 mb-1">
+              Course name
+            </label>
+            <input
+              id="create-course-name"
+              type="text"
+              value={createName}
+              onChange={(e) => setCreateName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
+              placeholder="e.g. CSCI 241 Databases Winter 26"
+              disabled={creating}
+              className="w-full h-9 rounded bg-gray-800 border border-gray-600 text-gray-200 text-sm px-2 placeholder-gray-500 focus:outline-none focus:border-cyan-500 disabled:opacity-50"
+              autoFocus
+            />
+          </div>
 
-      {/* Session select */}
-      <select
-        value={selectedSessionId}
-        onChange={(e) => setSelectedSessionId(e.target.value)}
-        className={SELECT_CLASS}
-        disabled={joining || sessionsLoading}
-        aria-label="Select session"
-      >
-        <option value="new">— new session —</option>
-        {sessions.map((s) => (
-          <option key={s.id} value={s.id}>
-            {formatSessionLabel(s)}
-          </option>
-        ))}
-      </select>
+          {/* MCQ option count */}
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-gray-400 shrink-0">MCQ options</span>
+            <div className="flex gap-2" role="radiogroup" aria-label="Default MCQ option count">
+              {([2, 3, 4, 5] as const).map((n) => (
+                <label
+                  key={n}
+                  className={[
+                    'flex items-center justify-center w-9 h-9 rounded-lg border-2 cursor-pointer font-semibold text-sm transition-colors',
+                    createOptionCount === n
+                      ? 'border-blue-500 bg-blue-600 text-white'
+                      : 'border-gray-600 bg-gray-700 text-gray-300 hover:border-blue-400',
+                  ].join(' ')}
+                >
+                  <input
+                    type="radio"
+                    name="create-option-count"
+                    value={n}
+                    checked={createOptionCount === n}
+                    onChange={() => setCreateOptionCount(n)}
+                    className="sr-only"
+                  />
+                  {n}
+                </label>
+              ))}
+            </div>
+          </div>
 
-      {/* Start/join button */}
-      <button
-        onClick={handleJoin}
-        disabled={joining || !selectedCourseId}
-        className="flex items-center justify-center w-10 h-10 rounded bg-green-600 hover:bg-green-500 text-white shrink-0 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        aria-label={joining ? 'Starting session…' : 'Start session'}
-      >
-        <IconPlayerPlay size={22} />
-      </button>
+          {/* Error */}
+          {createError && (
+            <p role="alert" className="text-xs text-red-400">
+              {createError}
+            </p>
+          )}
 
-      {/* Inline error */}
-      {error && (
-        <span
-          role="alert"
-          data-tauri-drag-region
-          className="text-xs text-red-400 shrink-0 truncate max-w-48"
-        >
-          {error}
-        </span>
+          {/* Actions */}
+          <div className="flex gap-2">
+            <button
+              onClick={handleCreate}
+              disabled={creating}
+              className="flex items-center justify-center px-4 h-8 rounded bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {creating ? 'Creating…' : 'Create'}
+            </button>
+            <button
+              onClick={handleCancelCreate}
+              disabled={creating}
+              className="flex items-center justify-center px-4 h-8 rounded bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
       )}
-
-      {/* Logout — right side */}
-      <button
-        onClick={handleLogout}
-        className="ml-auto flex items-center justify-center w-9 h-9 rounded text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors shrink-0"
-        aria-label="Logout"
-      >
-        <IconLogout size={18} />
-      </button>
     </div>
   )
 }

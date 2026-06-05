@@ -1,8 +1,45 @@
 import { supabase } from './supabase'
-import type { CRSQuestion, CRSSession, QuestionType } from '@crs/types'
+import type { CRSQuestion, CRSSession, Course, QuestionType } from '@crs/types'
 
 export function generateQRToken(): string {
   return crypto.randomUUID()
+}
+
+// Generate a short random join code like "X7K2M"
+export function generateJoinCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  return Array.from({ length: 5 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
+}
+
+export async function createCourse(
+  name: string,
+  defaultOptionCount: number,
+  ownerId: string,
+): Promise<Course> {
+  const joinCode = generateJoinCode()
+  const { data, error } = await supabase
+    .from('courses')
+    .insert({
+      name,
+      default_option_count: defaultOptionCount,
+      owner_id: ownerId,
+      join_code: joinCode,
+    })
+    .select()
+    .single()
+
+  if (error) throw new Error(`Failed to create course: ${error.message}`)
+  if (!data) throw new Error('No data returned after creating course')
+  return data as Course
+}
+
+export async function enrollInstructor(courseId: string, userId: string): Promise<void> {
+  const { error } = await supabase.from('enrollments').insert({
+    course_id: courseId,
+    user_id: userId,
+    role: 'INSTRUCTOR',
+  })
+  if (error) throw new Error(`Failed to enroll instructor: ${error.message}`)
 }
 
 // Generate a random 6-digit session code (100000–999999)
