@@ -95,6 +95,7 @@ export function ControllerToolbar({
           onClick={onOpenQR}
           className="flex items-center justify-center w-11 h-11 rounded-lg shrink-0 overflow-hidden hover:ring-2 hover:ring-cyan-500 transition-all"
           aria-label="Toggle QR code window"
+          title="Show QR code"
           data-tooltip="Show QR code"
         >
           <QRCode
@@ -112,6 +113,7 @@ export function ControllerToolbar({
             onClick={onStop}
             className="flex items-center justify-center w-14 h-10 rounded-lg bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xl font-bold shrink-0 transition-colors"
             aria-label="Stop question"
+            title="Stop question"
             data-tooltip="Stop question"
           >
             ■
@@ -122,6 +124,7 @@ export function ControllerToolbar({
               onClick={onLaunch}
               className="flex items-center justify-center w-10 h-10 rounded-l-lg rounded-r-none bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-xl font-bold transition-colors"
               aria-label={`Launch ${TYPE_LABELS[selectedType]} question`}
+              title="Launch question"
               data-tooltip="Launch question"
             >
               ▶
@@ -155,6 +158,7 @@ export function ControllerToolbar({
             onClick={onRevote}
             className="flex items-center justify-center px-3 h-10 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm font-medium shrink-0 transition-colors"
             aria-label="Launch revote"
+            title="Revote — peer instruction round 2"
             data-tooltip="Revote — peer instruction round 2"
           >
             ↺
@@ -195,6 +199,7 @@ export function ControllerToolbar({
           ].join(' ')}
           aria-label={resultsVisible ? 'Hide results from students' : 'Show results to students'}
           aria-pressed={resultsVisible}
+          title={resultsVisible ? 'Hide results from students' : 'Show results to students'}
           data-tooltip="Show results to students"
         >
           <IconChartBar size={18} stroke={2} aria-hidden="true" />
@@ -211,6 +216,7 @@ export function ControllerToolbar({
               : 'bg-red-700 hover:bg-red-600 active:bg-red-500 text-white',
           ].join(' ')}
           aria-label="End session"
+          title="End session"
           data-tooltip="End session"
         >
           <IconDoorExit size={18} stroke={2} aria-hidden="true" />
@@ -231,6 +237,7 @@ export function ControllerToolbar({
           aria-label="Settings"
           aria-expanded={showSettings}
           aria-haspopup="true"
+          title="Settings"
           data-tooltip="Settings"
         >
           ⚙

@@ -1,5 +1,8 @@
 # Changes
 
+## 2026-06-05 6
+- tauri-controller ControllerToolbar + SessionSelector: added title attributes to all icon-only buttons (QR, launch, stop, revote, results/hide toggle, end, gear, +, logout); results button title reflects current state
+
 ## 2026-06-05 5
 - tauri-controller index.css: added CSS tooltip rule via [data-tooltip]::before — dark bg #1f2937, border #374151, 11px monospace, appears above element with 120ms fade
 - tauri-controller ControllerToolbar: replaced title attributes with data-tooltip on QR, launch, stop, revote, results, end, gear buttons
