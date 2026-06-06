@@ -292,10 +292,10 @@ export function CoursesPage() {
                         <span className="text-gray-400 text-sm ml-4 shrink-0">View →</span>
                       </Link>
                       <button
-                        aria-label="Archive course"
                         onClick={() => setArchiveConfirmId(course.id)}
-                        className="shrink-0 p-3 mr-2 text-gray-300 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
+                        className="shrink-0 flex items-center gap-1.5 px-3 py-2 mr-3 text-sm text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors border border-transparent hover:border-gray-200"
                       >
+                        <span>Archive</span>
                         <ArchiveIcon />
                       </button>
                     </div>
