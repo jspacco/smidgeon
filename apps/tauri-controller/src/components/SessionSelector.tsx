@@ -74,7 +74,7 @@ export function SessionSelector({ user, onSessionStarted }: SessionSelectorProps
         if (fetchError) throw new Error(fetchError.message)
 
         const fetched = (data ?? []) as unknown as Array<{ course_id: string; courses: Course }>
-        const courseList = fetched.map((e) => e.courses).filter(Boolean)
+        const courseList = fetched.map((e) => e.courses).filter(Boolean).filter((c) => !c.archived_at)
         setCourses(courseList)
         if (courseList.length > 0) setSelectedCourseId(courseList[0]!.id)
       } catch (err) {

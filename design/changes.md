@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-06-06 8
+- tauri-controller SessionSelector: filter out archived courses client-side after enrollment join fetch
+- faculty-pwa CoursesPage: add .is('archived_at', null) to both primary and fallback course list queries
+
 ## 2026-06-06 7
 - tauri-controller App.tsx: extracted openLoginWindow() function; clicking the toolbar placeholder when unauthenticated now reopens the sign-in window if it was closed, or focuses it if already open; placeholder text updates to reflect window state
 

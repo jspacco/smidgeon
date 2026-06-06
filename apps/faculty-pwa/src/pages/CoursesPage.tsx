@@ -35,6 +35,7 @@ export default function CoursesPage() {
           `)
           .eq('enrollments.user_id', user!.id)
           .eq('enrollments.role', 'INSTRUCTOR')
+          .is('archived_at', null)
           .order('created_at', { ascending: false })
 
         if (fetchError) {
@@ -43,6 +44,7 @@ export default function CoursesPage() {
             .from('courses')
             .select('*')
             .eq('owner_id', user!.id)
+            .is('archived_at', null)
             .order('created_at', { ascending: false })
 
           if (ownedError) throw new Error(ownedError.message)
