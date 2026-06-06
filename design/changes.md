@@ -1,5 +1,8 @@
 # Changes
 
+## 2026-06-06 7
+- tauri-controller App.tsx: extracted openLoginWindow() function; clicking the toolbar placeholder when unauthenticated now reopens the sign-in window if it was closed, or focuses it if already open; placeholder text updates to reflect window state
+
 ## 2026-06-06 6
 - student-pwa FreeResponseView: single-answer mode (multi_answer=false) now loads existing response into textarea on mount, upserts (update if row exists, insert if not) instead of delete+insert, keeps text in textarea after submit so student can edit; button label is "Update response" after first submit
 - student-pwa FreeResponseView: multi-answer mode (multi_answer=true) clears textarea after each submit and shows "N responses submitted" count instead of a list of all prior answers

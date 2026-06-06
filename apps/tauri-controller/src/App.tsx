@@ -63,22 +63,36 @@ function ToolbarApp() {
     return () => subscription.unsubscribe()
   }, [])
 
+  function openLoginWindow() {
+    const win = new WebviewWindow('login', {
+      url: '#/login',
+      title: 'Smidgeon — Sign In',
+      width: 480,
+      height: 340,
+      resizable: false,
+      center: true,
+      alwaysOnTop: true,
+    })
+    setLoginWindowOpen(true)
+    win.onCloseRequested(() => setLoginWindowOpen(false))
+  }
+
+  async function handleSignInClick() {
+    if (loginWindowOpen) {
+      // Window is open but may be behind other windows — bring it to front
+      const win = await WebviewWindow.getByLabel('login')
+      await win?.setFocus()
+      return
+    }
+    openLoginWindow()
+  }
+
   // Open login popup when unauthenticated; close it when auth succeeds
   useEffect(() => {
     if (loading) return
 
     if (!user && !loginWindowOpen) {
-      const win = new WebviewWindow('login', {
-        url: '#/login',
-        title: 'Smidgeon — Sign In',
-        width: 480,
-        height: 340,
-        resizable: false,
-        center: true,
-        alwaysOnTop: true,
-      })
-      setLoginWindowOpen(true)
-      win.onCloseRequested(() => setLoginWindowOpen(false))
+      openLoginWindow()
     }
 
     if (user && loginWindowOpen) {
@@ -237,16 +251,19 @@ function ToolbarApp() {
   }
 
   if (!user) {
-    // Login window is open as a popup; show minimal placeholder in the toolbar
     return (
-      <div
-        className="flex items-center justify-center bg-gray-900"
+      <button
+        onClick={() => void handleSignInClick()}
+        className="w-full flex items-center justify-center bg-gray-900 hover:bg-gray-800 transition-colors cursor-pointer"
         style={{ height: 60 }}
-        role="status"
-        aria-live="polite"
+        aria-label={loginWindowOpen ? 'Bring sign-in window to front' : 'Open sign-in window'}
       >
-        <p className="text-xs text-gray-500">Smidgeon Controller — sign-in window open</p>
-      </div>
+        <p className="text-xs text-gray-500 select-none">
+          {loginWindowOpen
+            ? 'Smidgeon Controller — click to show sign-in window'
+            : 'Smidgeon Controller — click to sign in'}
+        </p>
+      </button>
     )
   }
 
