@@ -43,6 +43,7 @@ export function SessionSelector({ user, onSessionStarted }: SessionSelectorProps
   const [showCreatePanel, setShowCreatePanel] = useState(false)
   const [createName, setCreateName] = useState('')
   const [createOptionCount, setCreateOptionCount] = useState<2 | 3 | 4 | 5>(5)
+  const [createMultiAnswer, setCreateMultiAnswer] = useState(true)
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
 
@@ -141,7 +142,7 @@ export function SessionSelector({ user, onSessionStarted }: SessionSelectorProps
     setCreating(true)
     setCreateError(null)
     try {
-      const course = await createCourse(createName.trim(), createOptionCount, user.id)
+      const course = await createCourse(createName.trim(), createOptionCount, user.id, createMultiAnswer)
       await enrollInstructor(course.id, user.id)
       // Add to list and auto-select
       setCourses((prev) => [course, ...prev])
@@ -151,6 +152,7 @@ export function SessionSelector({ user, onSessionStarted }: SessionSelectorProps
       // Reset form and close panel
       setCreateName('')
       setCreateOptionCount(5)
+      setCreateMultiAnswer(true)
       setShowCreatePanel(false)
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : 'Failed to create course')
@@ -345,6 +347,36 @@ export function SessionSelector({ user, onSessionStarted }: SessionSelectorProps
                     className="sr-only"
                   />
                   {n}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Free response mode */}
+          <div data-tauri-drag-region className="flex items-center gap-3">
+            <span data-tauri-drag-region className="text-xs text-gray-400 shrink-0">Free response</span>
+            <div className="flex gap-2" role="radiogroup" aria-label="Default free response mode">
+              {([
+                { value: false, label: 'Single' },
+                { value: true, label: 'Multiple' },
+              ] as const).map(({ value, label }) => (
+                <label
+                  key={String(value)}
+                  className={[
+                    'flex items-center justify-center px-3 h-9 rounded-lg border-2 cursor-pointer text-sm font-medium transition-colors',
+                    createMultiAnswer === value
+                      ? 'border-blue-500 bg-blue-600 text-white'
+                      : 'border-gray-600 bg-gray-700 text-gray-300 hover:border-blue-400',
+                  ].join(' ')}
+                >
+                  <input
+                    type="radio"
+                    name="create-multi-answer"
+                    checked={createMultiAnswer === value}
+                    onChange={() => setCreateMultiAnswer(value)}
+                    className="sr-only"
+                  />
+                  {label}
                 </label>
               ))}
             </div>

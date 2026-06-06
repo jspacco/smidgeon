@@ -49,6 +49,7 @@ export function CoursesPage() {
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [newName, setNewName] = useState('')
   const [newOptionCount, setNewOptionCount] = useState<number>(5)
+  const [newMultiAnswer, setNewMultiAnswer] = useState(true)
   const [createError, setCreateError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
 
@@ -146,6 +147,7 @@ export function CoursesPage() {
           owner_id: user!.id,
           join_code: joinCode,
           default_option_count: newOptionCount,
+          default_multi_answer: newMultiAnswer,
         })
         .select()
         .single()
@@ -160,6 +162,7 @@ export function CoursesPage() {
 
       setNewName('')
       setNewOptionCount(5)
+      setNewMultiAnswer(true)
       setShowCreateForm(false)
       await loadCourses()
       navigate(`/courses/${(courseData as Course).id}`)
@@ -293,6 +296,20 @@ export function CoursesPage() {
                         {n} options
                       </option>
                     ))}
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="multi-answer" className="text-sm font-medium text-gray-700">
+                    Free response mode
+                  </label>
+                  <select
+                    id="multi-answer"
+                    value={newMultiAnswer ? 'multiple' : 'single'}
+                    onChange={(e) => setNewMultiAnswer(e.target.value === 'multiple')}
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="multiple">Multiple responses</option>
+                    <option value="single">Single response</option>
                   </select>
                 </div>
                 <Button type="submit" variant="primary" disabled={creating || !newName.trim()}>

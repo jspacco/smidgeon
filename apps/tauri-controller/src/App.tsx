@@ -101,10 +101,14 @@ function ToolbarApp() {
     }
   }, [user, loading])
 
-  // Sync default option count from selected course
+  // Sync defaults from selected course
   useEffect(() => {
     if (selectedCourse) {
-      setSettings((s) => ({ ...s, optionCount: selectedCourse.default_option_count }))
+      setSettings((s) => ({
+        ...s,
+        optionCount: selectedCourse.default_option_count,
+        multiAnswer: selectedCourse.default_multi_answer,
+      }))
     }
   }, [selectedCourse?.id])
 

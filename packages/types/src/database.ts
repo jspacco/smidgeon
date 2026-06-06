@@ -17,9 +17,11 @@ export interface Course {
   owner_id: string
   join_code: string
   default_option_count: number
+  default_multi_answer: boolean
   created_at: string
   institution_id: string | null
   academic_year_term_id: string | null
+  archived_at: string | null
 }
 
 export interface Enrollment {

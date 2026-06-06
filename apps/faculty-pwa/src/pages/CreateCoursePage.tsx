@@ -9,6 +9,7 @@ export default function CreateCoursePage() {
   const navigate = useNavigate()
   const [name, setName] = useState('')
   const [defaultOptionCount, setDefaultOptionCount] = useState(5)
+  const [defaultMultiAnswer, setDefaultMultiAnswer] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -26,7 +27,7 @@ export default function CreateCoursePage() {
     setError(null)
 
     try {
-      const course = await createCourse(trimmed, defaultOptionCount, user.id)
+      const course = await createCourse(trimmed, defaultOptionCount, user.id, defaultMultiAnswer)
       await enrollInstructor(course.id, user.id)
       navigate(`/courses/${course.id}`)
     } catch (err) {
@@ -67,7 +68,7 @@ export default function CreateCoursePage() {
             />
           </div>
 
-          <fieldset className="mb-8">
+          <fieldset className="mb-6">
             <legend className="block text-sm font-medium text-gray-700 mb-2">
               Default MCQ option count
             </legend>
@@ -92,6 +93,39 @@ export default function CreateCoursePage() {
                     disabled={submitting}
                   />
                   {n}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          <fieldset className="mb-8">
+            <legend className="block text-sm font-medium text-gray-700 mb-2">
+              Default free response mode
+            </legend>
+            <div className="flex gap-3" role="radiogroup" aria-label="Default free response mode">
+              {([
+                { value: false, label: 'Single', description: 'One answer, editable' },
+                { value: true, label: 'Multiple', description: 'Submit as many as they want' },
+              ] as const).map(({ value, label, description }) => (
+                <label
+                  key={String(value)}
+                  className={[
+                    'flex flex-col items-center justify-center flex-1 rounded-lg border-2 cursor-pointer px-3 py-3 text-center transition-colors',
+                    defaultMultiAnswer === value
+                      ? 'border-blue-600 bg-blue-50 text-blue-700'
+                      : 'border-gray-300 bg-white text-gray-700 hover:border-blue-400',
+                  ].join(' ')}
+                >
+                  <input
+                    type="radio"
+                    name="multi-answer"
+                    checked={defaultMultiAnswer === value}
+                    onChange={() => setDefaultMultiAnswer(value)}
+                    className="sr-only"
+                    disabled={submitting}
+                  />
+                  <span className="font-semibold text-base">{label}</span>
+                  <span className="text-xs mt-0.5 text-gray-500">{description}</span>
                 </label>
               ))}
             </div>

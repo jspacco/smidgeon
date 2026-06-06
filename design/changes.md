@@ -1,5 +1,15 @@
 # Changes
 
+## 2026-06-06 9
+- supabase migration 009: added default_multi_answer boolean NOT NULL DEFAULT true to courses table
+- packages/types Course: added default_multi_answer and archived_at fields
+- faculty-pwa CreateCoursePage: added Single/Multiple free response mode toggle; passes defaultMultiAnswer to createCourse
+- faculty-pwa lib/session.ts createCourse: added defaultMultiAnswer param
+- faculty-dashboard CoursesPage: added free response mode select to create form; included in insert
+- tauri-controller SessionSelector: added Single/Multiple toggle to create panel; passes createMultiAnswer to createCourse; resets on cancel/success
+- tauri-controller lib/session.ts createCourse: added defaultMultiAnswer param
+- tauri-controller App.tsx: syncs multiAnswer setting from selectedCourse.default_multi_answer alongside optionCount on session start
+
 ## 2026-06-06 8
 - tauri-controller SessionSelector: filter out archived courses client-side after enrollment join fetch
 - faculty-pwa CoursesPage: add .is('archived_at', null) to both primary and fallback course list queries
