@@ -52,33 +52,40 @@ export function CoursesPage() {
   const [createError, setCreateError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
 
-  // Archive confirmation state: holds the course id pending confirmation, or null
+  // Archive confirmation state
   const [archiveConfirmId, setArchiveConfirmId] = useState<string | null>(null)
   const [archiving, setArchiving] = useState(false)
+
+  // Archived courses
+  const [showArchived, setShowArchived] = useState(false)
+  const [archivedCourses, setArchivedCourses] = useState<Course[]>([])
+  const [loadingArchived, setLoadingArchived] = useState(false)
+  const [restoring, setRestoring] = useState<string | null>(null)
 
   useEffect(() => {
     if (!user) return
     loadCourses()
   }, [user])
 
+  async function getCourseIds(): Promise<string[]> {
+    const { data: enrollments, error: enrollErr } = await supabase
+      .from('enrollments')
+      .select('course_id')
+      .eq('user_id', user!.id)
+      .eq('role', 'INSTRUCTOR')
+    if (enrollErr) throw enrollErr
+    return (enrollments ?? []).map((e: { course_id: string }) => e.course_id)
+  }
+
   async function loadCourses() {
     setLoadingCourses(true)
     setLoadError(null)
     try {
-      const { data: enrollments, error: enrollErr } = await supabase
-        .from('enrollments')
-        .select('course_id')
-        .eq('user_id', user!.id)
-        .eq('role', 'INSTRUCTOR')
-      if (enrollErr) throw enrollErr
-
-      const courseIds = (enrollments ?? []).map((e: { course_id: string }) => e.course_id)
-
+      const courseIds = await getCourseIds()
       if (courseIds.length === 0) {
         setCourses([])
         return
       }
-
       const { data: coursesData, error: coursesErr } = await supabase
         .from('courses')
         .select('*')
@@ -91,6 +98,37 @@ export function CoursesPage() {
       setLoadError(err instanceof Error ? err.message : 'Failed to load courses.')
     } finally {
       setLoadingCourses(false)
+    }
+  }
+
+  async function loadArchivedCourses() {
+    setLoadingArchived(true)
+    try {
+      const courseIds = await getCourseIds()
+      if (courseIds.length === 0) {
+        setArchivedCourses([])
+        return
+      }
+      const { data, error } = await supabase
+        .from('courses')
+        .select('*')
+        .in('id', courseIds)
+        .not('archived_at', 'is', null)
+        .order('archived_at', { ascending: false })
+      if (error) throw error
+      setArchivedCourses((data ?? []) as Course[])
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load archived courses.')
+    } finally {
+      setLoadingArchived(false)
+    }
+  }
+
+  function handleToggleArchived() {
+    const next = !showArchived
+    setShowArchived(next)
+    if (next && archivedCourses.length === 0) {
+      loadArchivedCourses()
     }
   }
 
@@ -142,11 +180,34 @@ export function CoursesPage() {
       if (error) throw error
       setCourses((prev) => prev.filter((c) => c.id !== courseId))
       setArchiveConfirmId(null)
+      // Refresh archived list if it's visible
+      if (showArchived) {
+        await loadArchivedCourses()
+      } else {
+        setArchivedCourses([])
+      }
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : 'Failed to archive course.')
       setArchiveConfirmId(null)
     } finally {
       setArchiving(false)
+    }
+  }
+
+  async function handleRestore(courseId: string) {
+    setRestoring(courseId)
+    try {
+      const { error } = await supabase
+        .from('courses')
+        .update({ archived_at: null })
+        .eq('id', courseId)
+      if (error) throw error
+      setArchivedCourses((prev) => prev.filter((c) => c.id !== courseId))
+      await loadCourses()
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to restore course.')
+    } finally {
+      setRestoring(null)
     }
   }
 
@@ -175,16 +236,24 @@ export function CoursesPage() {
             <h2 id="courses-heading" className="text-lg font-semibold text-gray-900">
               Your courses
             </h2>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => {
-                setShowCreateForm((v) => !v)
-                setCreateError(null)
-              }}
-            >
-              {showCreateForm ? 'Cancel' : '+ Create Course'}
-            </Button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleToggleArchived}
+                className="text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded-lg hover:bg-gray-100 border border-gray-200 hover:border-gray-300 transition-colors"
+              >
+                {showArchived ? 'Hide archived' : 'Show archived courses'}
+              </button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => {
+                  setShowCreateForm((v) => !v)
+                  setCreateError(null)
+                }}
+              >
+                {showCreateForm ? 'Cancel' : '+ Create Course'}
+              </Button>
+            </div>
           </div>
 
           {/* Create course form (toggled) */}
@@ -305,6 +374,45 @@ export function CoursesPage() {
             </ul>
           )}
         </section>
+
+        {/* Archived courses */}
+        {showArchived && (
+          <section aria-labelledby="archived-heading">
+            <h2 id="archived-heading" className="text-lg font-semibold text-gray-500 mb-4">
+              Archived courses
+            </h2>
+            {loadingArchived ? (
+              <p className="text-gray-400 text-sm">Loading archived courses…</p>
+            ) : archivedCourses.length === 0 ? (
+              <p className="text-gray-400 text-sm">No archived courses.</p>
+            ) : (
+              <ul className="flex flex-col gap-3" aria-label="Archived course list">
+                {archivedCourses.map((course) => (
+                  <li key={course.id}>
+                    <div className="flex items-center bg-white border border-gray-200 rounded-xl px-6 py-4 gap-4 opacity-60">
+                      <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                        <span className="font-semibold text-gray-700 truncate">{course.name}</span>
+                        <span className="text-xs text-gray-400">
+                          Join code:{' '}
+                          <span className="font-mono font-semibold text-gray-500">
+                            {course.join_code}
+                          </span>
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => handleRestore(course.id)}
+                        disabled={restoring === course.id}
+                        className="shrink-0 text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                      >
+                        {restoring === course.id ? 'Restoring…' : 'Restore'}
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
       </main>
     </div>
   )
