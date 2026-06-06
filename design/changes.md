@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-06-06 6
+- student-pwa FreeResponseView: single-answer mode (multi_answer=false) now loads existing response into textarea on mount, upserts (update if row exists, insert if not) instead of delete+insert, keeps text in textarea after submit so student can edit; button label is "Update response" after first submit
+- student-pwa FreeResponseView: multi-answer mode (multi_answer=true) clears textarea after each submit and shows "N responses submitted" count instead of a list of all prior answers
+
 ## 2026-06-06 5
 - faculty-dashboard: fixed OAuth redirect loop — auth.ts redirectTo now points to /auth/callback; added AuthCallback.tsx page (exchanges session, redirects to /courses or /login); added /auth/callback route in App.tsx
 - faculty-dashboard CoursesPage: create course form hidden by default; "+ Create Course" toggle button in section header; form hides on successful create

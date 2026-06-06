@@ -253,24 +253,40 @@ function FreeResponseView({ question, userId }: QuestionViewProps) {
   const [text, setText] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
-  const [submittedAnswers, setSubmittedAnswers] = useState<string[]>([])
+  // multi_answer=true: count of submitted rows
+  const [submitCount, setSubmitCount] = useState(0)
+  // multi_answer=false: whether an existing row exists (controls button label)
+  const [hasExisting, setHasExisting] = useState(false)
 
-  // Load existing responses on mount
+  // On mount: for single-answer load existing text into textarea;
+  // for multi-answer load the count of prior submissions.
   useEffect(() => {
     let cancelled = false
-    supabase
-      .from('crs_responses')
-      .select('response')
-      .eq('question_id', question.id)
-      .eq('user_id', userId)
-      .order('submitted_at', { ascending: true })
-      .then(({ data }) => {
-        if (!cancelled && data && data.length > 0) {
-          setSubmittedAnswers(data.map((r: { response: string }) => r.response))
-        }
-      })
+    if (question.multi_answer) {
+      supabase
+        .from('crs_responses')
+        .select('response')
+        .eq('question_id', question.id)
+        .eq('user_id', userId)
+        .then(({ data }) => {
+          if (!cancelled && data) setSubmitCount(data.length)
+        })
+    } else {
+      supabase
+        .from('crs_responses')
+        .select('response')
+        .eq('question_id', question.id)
+        .eq('user_id', userId)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (!cancelled && data) {
+            setText(data.response as string)
+            setHasExisting(true)
+          }
+        })
+    }
     return () => { cancelled = true }
-  }, [question.id, userId])
+  }, [question.id, question.multi_answer, userId])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -281,29 +297,37 @@ function FreeResponseView({ question, userId }: QuestionViewProps) {
     setSubmitting(true)
     try {
       if (question.multi_answer) {
-        // Each submit is a new row
+        // Each submission is a new row
         const { error } = await supabase
           .from('crs_responses')
           .insert({ question_id: question.id, user_id: userId, response: trimmed })
         if (error) throw error
-        setSubmittedAnswers((prev) => [...prev, trimmed])
+        setSubmitCount((c) => c + 1)
+        setText('')
       } else {
-        // Single answer: delete old row, insert new
-        const { error: deleteError } = await supabase
+        // Single answer: upsert by (question_id, user_id)
+        const { data: existing } = await supabase
           .from('crs_responses')
-          .delete()
+          .select('id')
           .eq('question_id', question.id)
           .eq('user_id', userId)
-        if (deleteError) throw deleteError
+          .maybeSingle()
 
-        const { error: insertError } = await supabase
-          .from('crs_responses')
-          .insert({ question_id: question.id, user_id: userId, response: trimmed })
-        if (insertError) throw insertError
-
-        setSubmittedAnswers([trimmed])
+        if (existing) {
+          const { error } = await supabase
+            .from('crs_responses')
+            .update({ response: trimmed })
+            .eq('id', existing.id as string)
+          if (error) throw error
+        } else {
+          const { error } = await supabase
+            .from('crs_responses')
+            .insert({ question_id: question.id, user_id: userId, response: trimmed })
+          if (error) throw error
+        }
+        setHasExisting(true)
+        // Leave text in textarea so student can see and edit their answer
       }
-      setText('')
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Something went wrong, please refresh')
     } finally {
@@ -317,14 +341,10 @@ function FreeResponseView({ question, userId }: QuestionViewProps) {
         {question.multi_answer ? 'You may submit multiple responses' : 'Type your response'}
       </p>
 
-      {submittedAnswers.length > 0 && (
-        <ul className="flex flex-col gap-1 mb-1" aria-label="Your submitted responses">
-          {submittedAnswers.map((ans, i) => (
-            <li key={i} className="text-sm text-gray-700 bg-blue-50 rounded-lg px-3 py-2">
-              {ans}
-            </li>
-          ))}
-        </ul>
+      {question.multi_answer && submitCount > 0 && (
+        <p className="text-sm font-medium text-blue-600">
+          {submitCount} {submitCount === 1 ? 'response' : 'responses'} submitted
+        </p>
       )}
 
       <form onSubmit={(e) => void handleSubmit(e)} className="flex flex-col gap-2">
@@ -354,12 +374,16 @@ function FreeResponseView({ question, userId }: QuestionViewProps) {
         >
           {submitting
             ? 'Submitting…'
-            : question.multi_answer && submittedAnswers.length > 0
-              ? 'Add another response'
-              : submittedAnswers.length > 0
-                ? 'Submit another response'
-                : 'Submit'}
+            : question.multi_answer
+              ? submitCount > 0 ? 'Add another response' : 'Submit'
+              : hasExisting ? 'Update response' : 'Submit'}
         </Button>
+
+        {!question.multi_answer && hasExisting && (
+          <p className="text-sm text-gray-500 text-center">
+            Response submitted. Edit and resubmit to change.
+          </p>
+        )}
       </form>
     </div>
   )
