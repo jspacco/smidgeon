@@ -4,17 +4,25 @@ import { supabase } from '../lib/supabase'
 import type { User } from '@supabase/supabase-js'
 
 /**
- * App-level hook: subscribes to crs_sessions INSERT and navigates to the
- * session page when a new active session is started for any of the
- * faculty's courses. Designed to run at the top of the component tree so
- * it fires regardless of which page the faculty is currently viewing.
+ * App-level hook with two responsibilities:
  *
- * Fetches course IDs first, then opens the Realtime channel, so the
- * lookup Set is populated before any INSERT events can arrive.
+ * 1. INSERT watcher — subscribes to crs_sessions INSERT for any of the
+ *    faculty's courses. When a new active session appears, navigates to
+ *    the session page with { autoJoined: true }. Runs whenever the user
+ *    is authenticated, regardless of which page is shown.
+ *
+ * 2. UPDATE watcher — when currentSessionId is provided (i.e. faculty is
+ *    on a session page), subscribes to UPDATE events on that specific
+ *    session. When ended_at becomes non-null, navigates back to the
+ *    course page with { message: 'Session ended' }.
  */
-export function useActiveSessionRedirect(user: User | null): void {
+export function useActiveSessionRedirect(
+  user: User | null,
+  currentSessionId: string | null = null,
+): void {
   const navigate = useNavigate()
 
+  // --- INSERT watcher: auto-navigate when a new session starts ---
   useEffect(() => {
     if (!user) return
 
@@ -63,4 +71,33 @@ export function useActiveSessionRedirect(user: User | null): void {
       if (channel) void supabase.removeChannel(channel)
     }
   }, [user, navigate])
+
+  // --- UPDATE watcher: detect session-ended while on the session page ---
+  useEffect(() => {
+    if (!currentSessionId) return
+
+    const channel = supabase
+      .channel(`session-ended-${currentSessionId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'crs_sessions',
+          filter: `id=eq.${currentSessionId}`,
+        },
+        (payload) => {
+          const updated = payload.new as { ended_at: string | null; course_id: string }
+          if (updated.ended_at !== null) {
+            navigate(`/courses/${updated.course_id}`, {
+              replace: true,
+              state: { message: 'Session ended' },
+            })
+          }
+        },
+      )
+      .subscribe()
+
+    return () => { void supabase.removeChannel(channel) }
+  }, [currentSessionId, navigate])
 }

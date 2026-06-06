@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-06-06 3
+- faculty-pwa useActiveSessionRedirect: added currentSessionId optional param; second useEffect subscribes to UPDATE on that specific session (filter: id=eq.{id}); when ended_at becomes non-null navigates to /courses/{course_id} with { replace: true, state: { message: 'Session ended' } }
+- faculty-pwa App.tsx AppShell: uses useMatch to extract sessionId from current URL path; passes it to useActiveSessionRedirect so UPDATE watcher activates automatically when faculty is on a session page
+
 ## 2026-06-06 2
 - faculty-pwa: added hooks/useActiveSessionRedirect.ts — fetches instructor/TA course IDs, then subscribes to crs_sessions INSERT; on match navigates to session with { autoJoined: true }; cancelled flag guards against stale async setup; channel cleaned up on unmount
 - faculty-pwa App.tsx: added AppShell component inside BrowserRouter that calls useActiveSessionRedirect(user) — hook runs on every page, not just CoursesPage

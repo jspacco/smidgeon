@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes, useMatch } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 import { useSession } from './hooks/useSession'
 import { useActiveSessionRedirect } from './hooks/useActiveSessionRedirect'
@@ -85,10 +85,12 @@ function RootRedirect() {
   return <LoginPage />
 }
 
-// AppShell lives inside BrowserRouter so useNavigate is available for the hook
+// AppShell lives inside BrowserRouter so useNavigate/useMatch are available
 function AppShell() {
   const { user } = useSession()
-  useActiveSessionRedirect(user)
+  const sessionMatch = useMatch('/courses/:courseId/session/:sessionId')
+  const currentSessionId = sessionMatch?.params.sessionId ?? null
+  useActiveSessionRedirect(user, currentSessionId)
 
   return (
     <Routes>
