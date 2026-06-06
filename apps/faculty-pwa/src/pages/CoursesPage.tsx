@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useSession } from '../hooks/useSession'
@@ -18,10 +18,6 @@ export default function CoursesPage() {
   const [courses, setCourses] = useState<Course[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-
-  // Keep a ref so the Realtime callback always sees the latest course list
-  const coursesRef = useRef<Course[]>([])
-  useEffect(() => { coursesRef.current = courses }, [courses])
 
   useEffect(() => {
     if (!user) return
@@ -63,31 +59,6 @@ export default function CoursesPage() {
 
     loadCourses()
   }, [user])
-
-  // Realtime: navigate to session when Tauri (or any surface) starts one
-  useEffect(() => {
-    if (!user) return
-
-    const channel = supabase
-      .channel('courses-page-new-sessions')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'crs_sessions' },
-        (payload) => {
-          const session = payload.new as { id: string; course_id: string; ended_at: string | null }
-          if (session.ended_at !== null) return
-          const owned = coursesRef.current.some((c) => c.id === session.course_id)
-          if (!owned) return
-          navigate(
-            `/courses/${session.course_id}/session/${session.id}`,
-            { state: { autoJoined: true } },
-          )
-        },
-      )
-      .subscribe()
-
-    return () => { void supabase.removeChannel(channel) }
-  }, [user, navigate])
 
   return (
     <main className="min-h-screen bg-gray-50">

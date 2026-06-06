@@ -1,5 +1,10 @@
 # Changes
 
+## 2026-06-06 2
+- faculty-pwa: added hooks/useActiveSessionRedirect.ts — fetches instructor/TA course IDs, then subscribes to crs_sessions INSERT; on match navigates to session with { autoJoined: true }; cancelled flag guards against stale async setup; channel cleaned up on unmount
+- faculty-pwa App.tsx: added AppShell component inside BrowserRouter that calls useActiveSessionRedirect(user) — hook runs on every page, not just CoursesPage
+- faculty-pwa CoursesPage: removed duplicate Realtime subscription, coursesRef, and ref-sync effect (now handled by app-level hook)
+
 ## 2026-06-06
 - faculty-pwa CoursesPage: added Realtime subscription on crs_sessions INSERT; when a new active session arrives for one of the faculty's courses, navigates to /courses/:courseId/session/:sessionId with state { autoJoined: true }; coursesRef keeps subscription callback in sync with latest course list; channel cleaned up on unmount
 - faculty-pwa SessionPage: reads location.state.autoJoined; if true initializes mode to 'monitor', otherwise 'control'; added useLocation import

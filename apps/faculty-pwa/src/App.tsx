@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 import { useSession } from './hooks/useSession'
+import { useActiveSessionRedirect } from './hooks/useActiveSessionRedirect'
 import LoginPage from './pages/LoginPage'
 import CoursesPage from './pages/CoursesPage'
 import CreateCoursePage from './pages/CreateCoursePage'
@@ -84,44 +85,54 @@ function RootRedirect() {
   return <LoginPage />
 }
 
+// AppShell lives inside BrowserRouter so useNavigate is available for the hook
+function AppShell() {
+  const { user } = useSession()
+  useActiveSessionRedirect(user)
+
+  return (
+    <Routes>
+      <Route path="/" element={<RootRedirect />} />
+      <Route
+        path="/courses"
+        element={
+          <ProtectedRoute>
+            <CoursesPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/courses/new"
+        element={
+          <ProtectedRoute>
+            <CreateCoursePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/courses/:courseId"
+        element={
+          <ProtectedRoute>
+            <CourseHomePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/courses/:courseId/session/:sessionId"
+        element={
+          <ProtectedRoute>
+            <SessionPage />
+          </ProtectedRoute>
+        }
+      />
+    </Routes>
+  )
+}
+
 export default function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<RootRedirect />} />
-        <Route
-          path="/courses"
-          element={
-            <ProtectedRoute>
-              <CoursesPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/courses/new"
-          element={
-            <ProtectedRoute>
-              <CreateCoursePage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/courses/:courseId"
-          element={
-            <ProtectedRoute>
-              <CourseHomePage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/courses/:courseId/session/:sessionId"
-          element={
-            <ProtectedRoute>
-              <SessionPage />
-            </ProtectedRoute>
-          }
-        />
-      </Routes>
+      <AppShell />
     </BrowserRouter>
   )
 }
