@@ -1,5 +1,11 @@
 # Changes
 
+## 2026-06-06 5
+- faculty-dashboard: fixed OAuth redirect loop — auth.ts redirectTo now points to /auth/callback; added AuthCallback.tsx page (exchanges session, redirects to /courses or /login); added /auth/callback route in App.tsx
+- faculty-dashboard CoursesPage: create course form hidden by default; "+ Create Course" toggle button in section header; form hides on successful create
+- faculty-dashboard CoursesPage: archive course button (arrow-bar-down icon) on each course row; inline confirmation ("Archive this course?" Confirm/Cancel) replaces modal; on confirm sets archived_at=now() and removes course from list immediately
+- supabase migration 008: added archived_at timestamptz DEFAULT NULL to courses table; courses query filters .is('archived_at', null)
+
 ## 2026-06-06 4
 - tauri-controller ControllerToolbar + SessionSelector: wrapped all icon-only buttons in <span title="..."> to work around WebKit bug where title on <button> elements does not show native tooltips; title moved from button to span, all other attributes remain on button; ml-auto moved to span on + button
 

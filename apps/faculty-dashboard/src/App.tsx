@@ -4,6 +4,7 @@ import { LoginPage } from './pages/LoginPage'
 import { CoursesPage } from './pages/CoursesPage'
 import { CourseView } from './pages/CourseView'
 import { SessionDetailPage } from './pages/SessionDetailPage'
+import { AuthCallback } from './pages/AuthCallback'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useSession()
@@ -52,6 +53,7 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/" element={<Navigate to="/courses" replace />} />
         <Route path="*" element={<Navigate to="/courses" replace />} />
       </Routes>
