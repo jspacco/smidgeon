@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-06-06
+- faculty-pwa CoursesPage: added Realtime subscription on crs_sessions INSERT; when a new active session arrives for one of the faculty's courses, navigates to /courses/:courseId/session/:sessionId with state { autoJoined: true }; coursesRef keeps subscription callback in sync with latest course list; channel cleaned up on unmount
+- faculty-pwa SessionPage: reads location.state.autoJoined; if true initializes mode to 'monitor', otherwise 'control'; added useLocation import
+
 ## 2026-06-05 7
 - tauri-controller ControllerToolbar + SessionSelector: added permanent 16px drag handle (IconGripVertical, cursor-move, text-gray-600/hover:gray-400, data-tauri-drag-region) as leftmost element in toolbar row; additive — all existing drag regions preserved
 

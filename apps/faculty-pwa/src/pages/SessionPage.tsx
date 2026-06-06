@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import {
   launchQuestion,
@@ -53,8 +53,10 @@ function formatDatetime(iso: string): string {
 export default function SessionPage() {
   const { courseId, sessionId } = useParams<{ courseId: string; sessionId: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
 
-  const [mode, setMode] = useState<ViewMode>('monitor')
+  const autoJoined = (location.state as { autoJoined?: boolean } | null)?.autoJoined ?? false
+  const [mode, setMode] = useState<ViewMode>(autoJoined ? 'monitor' : 'control')
   const [course, setCourse] = useState<Course | null>(null)
   const [session, setSession] = useState<CRSSession | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
