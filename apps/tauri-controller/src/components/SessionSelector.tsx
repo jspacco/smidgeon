@@ -241,7 +241,7 @@ export function SessionSelector({ user, onSessionStarted }: SessionSelectorProps
             <select
               value={selectedSessionId}
               onChange={(e) => setSelectedSessionId(e.target.value)}
-              className={`${SELECT_CLASS} max-w-[160px]`}
+              className={`${SELECT_CLASS} max-w-[120px]`}
               disabled={joining || sessionsLoading}
               aria-label="Select session"
             >
