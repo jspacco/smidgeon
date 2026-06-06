@@ -1,5 +1,8 @@
 # Changes
 
+## 2026-06-06 4
+- tauri-controller ControllerToolbar + SessionSelector: wrapped all icon-only buttons in <span title="..."> to work around WebKit bug where title on <button> elements does not show native tooltips; title moved from button to span, all other attributes remain on button; ml-auto moved to span on + button
+
 ## 2026-06-06 3
 - faculty-pwa useActiveSessionRedirect: added currentSessionId optional param; second useEffect subscribes to UPDATE on that specific session (filter: id=eq.{id}); when ended_at becomes non-null navigates to /courses/{course_id} with { replace: true, state: { message: 'Session ended' } }
 - faculty-pwa App.tsx AppShell: uses useMatch to extract sessionId from current URL path; passes it to useActiveSessionRedirect so UPDATE watcher activates automatically when faculty is on a session page

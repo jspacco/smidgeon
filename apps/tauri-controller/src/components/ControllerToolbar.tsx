@@ -101,44 +101,47 @@ export function ControllerToolbar({
         </div>
 
         {/* Mini QR — decorative, clicking opens full-size QR window */}
-        <button
-          onClick={onOpenQR}
-          className="flex items-center justify-center w-11 h-11 rounded-lg shrink-0 overflow-hidden hover:ring-2 hover:ring-cyan-500 transition-all"
-          aria-label="Toggle QR code window"
-          title="Show QR code"
-          data-tooltip="Show QR code"
-        >
-          <QRCode
-            value={session.qr_token}
-            size={40}
-            colorDark="#06B6D4"
-            colorLight="#0D1117"
-            margin={1}
-          />
-        </button>
+        <span title="Show QR code">
+          <button
+            onClick={onOpenQR}
+            className="flex items-center justify-center w-11 h-11 rounded-lg shrink-0 overflow-hidden hover:ring-2 hover:ring-cyan-500 transition-all"
+            aria-label="Toggle QR code window"
+            data-tooltip="Show QR code"
+          >
+            <QRCode
+              value={session.qr_token}
+              size={40}
+              colorDark="#06B6D4"
+              colorLight="#0D1117"
+              margin={1}
+            />
+          </button>
+        </span>
 
         {/* Launch split button (idle) / Stop button (active) */}
         {isActive ? (
-          <button
-            onClick={onStop}
-            className="flex items-center justify-center w-14 h-10 rounded-lg bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xl font-bold shrink-0 transition-colors"
-            aria-label="Stop question"
-            title="Stop question"
-            data-tooltip="Stop question"
-          >
-            ■
-          </button>
+          <span title="Stop question">
+            <button
+              onClick={onStop}
+              className="flex items-center justify-center w-14 h-10 rounded-lg bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xl font-bold shrink-0 transition-colors"
+              aria-label="Stop question"
+              data-tooltip="Stop question"
+            >
+              ■
+            </button>
+          </span>
         ) : (
           <div className="flex shrink-0">
-            <button
-              onClick={onLaunch}
-              className="flex items-center justify-center w-10 h-10 rounded-l-lg rounded-r-none bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-xl font-bold transition-colors"
-              aria-label={`Launch ${TYPE_LABELS[selectedType]} question`}
-              title="Launch question"
-              data-tooltip="Launch question"
-            >
-              ▶
-            </button>
+            <span title="Launch question">
+              <button
+                onClick={onLaunch}
+                className="flex items-center justify-center w-10 h-10 rounded-l-lg rounded-r-none bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-xl font-bold transition-colors"
+                aria-label={`Launch ${TYPE_LABELS[selectedType]} question`}
+                data-tooltip="Launch question"
+              >
+                ▶
+              </button>
+            </span>
             {/* Native select — text hidden, custom ▾ via background-image */}
             <select
               value={selectedType}
@@ -164,15 +167,16 @@ export function ControllerToolbar({
 
         {/* Revote button — conditional */}
         {showRevoteButton && currentQuestion && (
-          <button
-            onClick={onRevote}
-            className="flex items-center justify-center px-3 h-10 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm font-medium shrink-0 transition-colors"
-            aria-label="Launch revote"
-            title="Revote — peer instruction round 2"
-            data-tooltip="Revote — peer instruction round 2"
-          >
-            ↺
-          </button>
+          <span title="Revote — peer instruction round 2">
+            <button
+              onClick={onRevote}
+              className="flex items-center justify-center px-3 h-10 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm font-medium shrink-0 transition-colors"
+              aria-label="Launch revote"
+              data-tooltip="Revote — peer instruction round 2"
+            >
+              ↺
+            </button>
+          </span>
         )}
 
         {/* Info zone — timer only */}
@@ -196,62 +200,65 @@ export function ControllerToolbar({
         </div>
 
         {/* Results toggle */}
-        <button
-          onClick={onToggleResults}
-          disabled={isActive || !hasQuestion}
-          className={[
-            'flex items-center justify-center px-3 h-10 rounded-lg text-sm font-medium shrink-0 transition-colors',
-            isActive || !hasQuestion
-              ? 'text-gray-500 cursor-not-allowed'
-              : resultsVisible
-                ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                : 'bg-gray-700 hover:bg-gray-600 text-gray-200',
-          ].join(' ')}
-          aria-label={resultsVisible ? 'Hide results from students' : 'Show results to students'}
-          aria-pressed={resultsVisible}
-          title={resultsVisible ? 'Hide results from students' : 'Show results to students'}
-          data-tooltip="Show results to students"
-        >
-          <IconChartBar size={18} stroke={2} aria-hidden="true" />
-        </button>
+        <span title={resultsVisible ? 'Hide results from students' : 'Show results to students'}>
+          <button
+            onClick={onToggleResults}
+            disabled={isActive || !hasQuestion}
+            className={[
+              'flex items-center justify-center px-3 h-10 rounded-lg text-sm font-medium shrink-0 transition-colors',
+              isActive || !hasQuestion
+                ? 'text-gray-500 cursor-not-allowed'
+                : resultsVisible
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                  : 'bg-gray-700 hover:bg-gray-600 text-gray-200',
+            ].join(' ')}
+            aria-label={resultsVisible ? 'Hide results from students' : 'Show results to students'}
+            aria-pressed={resultsVisible}
+            data-tooltip="Show results to students"
+          >
+            <IconChartBar size={18} stroke={2} aria-hidden="true" />
+          </button>
+        </span>
 
         {/* END — primary session end button, always visible when session active */}
-        <button
-          onClick={onEndSession}
-          disabled={isActive}
-          className={[
-            'flex items-center justify-center px-3 h-10 rounded-lg text-sm font-semibold shrink-0 transition-colors',
-            isActive
-              ? 'bg-red-900 text-red-700 cursor-not-allowed'
-              : 'bg-red-700 hover:bg-red-600 active:bg-red-500 text-white',
-          ].join(' ')}
-          aria-label="End session"
-          title="End session"
-          data-tooltip="End session"
-        >
-          <IconDoorExit size={18} stroke={2} aria-hidden="true" />
-        </button>
+        <span title="End session">
+          <button
+            onClick={onEndSession}
+            disabled={isActive}
+            className={[
+              'flex items-center justify-center px-3 h-10 rounded-lg text-sm font-semibold shrink-0 transition-colors',
+              isActive
+                ? 'bg-red-900 text-red-700 cursor-not-allowed'
+                : 'bg-red-700 hover:bg-red-600 active:bg-red-500 text-white',
+            ].join(' ')}
+            aria-label="End session"
+            data-tooltip="End session"
+          >
+            <IconDoorExit size={18} stroke={2} aria-hidden="true" />
+          </button>
+        </span>
 
         {/* Gear / settings */}
-        <button
-          onClick={() => !isActive && setShowSettings((s) => !s)}
-          disabled={isActive}
-          className={[
-            'flex items-center justify-center w-10 h-10 rounded-lg text-lg shrink-0 transition-colors',
-            isActive
-              ? 'text-gray-600 cursor-not-allowed'
-              : showSettings
-                ? 'bg-gray-700 text-white'
-                : 'text-gray-400 hover:bg-gray-700 hover:text-white',
-          ].join(' ')}
-          aria-label="Settings"
-          aria-expanded={showSettings}
-          aria-haspopup="true"
-          title="Settings"
-          data-tooltip="Settings"
-        >
-          ⚙
-        </button>
+        <span title="Settings">
+          <button
+            onClick={() => !isActive && setShowSettings((s) => !s)}
+            disabled={isActive}
+            className={[
+              'flex items-center justify-center w-10 h-10 rounded-lg text-lg shrink-0 transition-colors',
+              isActive
+                ? 'text-gray-600 cursor-not-allowed'
+                : showSettings
+                  ? 'bg-gray-700 text-white'
+                  : 'text-gray-400 hover:bg-gray-700 hover:text-white',
+            ].join(' ')}
+            aria-label="Settings"
+            aria-expanded={showSettings}
+            aria-haspopup="true"
+            data-tooltip="Settings"
+          >
+            ⚙
+          </button>
+        </span>
       </div>
 
       {/* Settings panel — floats below the toolbar */}

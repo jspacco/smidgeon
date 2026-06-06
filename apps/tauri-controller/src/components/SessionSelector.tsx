@@ -273,31 +273,32 @@ export function SessionSelector({ user, onSessionStarted }: SessionSelectorProps
         )}
 
         {/* + Create course — suppressed when panel open */}
-        <button
-          onClick={() => setShowCreatePanel((s) => !s)}
-          className={[
-            iconButtonClass,
-            'ml-auto',
-            showCreatePanel ? 'opacity-50' : '',
-          ].join(' ')}
-          aria-label="Create course"
-          aria-expanded={showCreatePanel}
-          title="Create new course"
-          data-tooltip="Create new course"
-        >
-          <IconPlus size={18} />
-        </button>
+        <span title="Create new course" className="ml-auto">
+          <button
+            onClick={() => setShowCreatePanel((s) => !s)}
+            className={[
+              iconButtonClass,
+              showCreatePanel ? 'opacity-50' : '',
+            ].join(' ')}
+            aria-label="Create course"
+            aria-expanded={showCreatePanel}
+            data-tooltip="Create new course"
+          >
+            <IconPlus size={18} />
+          </button>
+        </span>
 
         {/* Logout */}
-        <button
-          onClick={handleLogout}
-          className={iconButtonClass}
-          aria-label="Logout"
-          title="Sign out"
-          data-tooltip="Sign out"
-        >
-          <IconLogout size={18} />
-        </button>
+        <span title="Sign out">
+          <button
+            onClick={handleLogout}
+            className={iconButtonClass}
+            aria-label="Logout"
+            data-tooltip="Sign out"
+          >
+            <IconLogout size={18} />
+          </button>
+        </span>
       </div>
 
       {/* Create course panel */}
