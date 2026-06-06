@@ -70,7 +70,7 @@ function ToolbarApp() {
     if (!user && !loginWindowOpen) {
       const win = new WebviewWindow('login', {
         url: '#/login',
-        title: 'CRS — Sign In',
+        title: 'Smidgeon — Sign In',
         width: 480,
         height: 340,
         resizable: false,
@@ -245,7 +245,7 @@ function ToolbarApp() {
         role="status"
         aria-live="polite"
       >
-        <p className="text-xs text-gray-500">CRS Controller — sign-in window open</p>
+        <p className="text-xs text-gray-500">Smidgeon Controller — sign-in window open</p>
       </div>
     )
   }

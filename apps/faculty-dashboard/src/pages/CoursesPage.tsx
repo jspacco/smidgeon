@@ -116,7 +116,7 @@ export function CoursesPage() {
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">CRS Dashboard</h1>
+          <h1 className="text-xl font-bold text-gray-900">Smidgeon Dashboard</h1>
           <p className="text-sm text-gray-500">{user?.email}</p>
         </div>
         <Button variant="ghost" size="sm" onClick={handleSignOut}>

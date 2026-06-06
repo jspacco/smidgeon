@@ -23,7 +23,7 @@ export function LoginPage() {
     <main className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="w-full max-w-sm bg-white rounded-2xl shadow-sm border border-gray-200 p-8 flex flex-col items-center gap-6">
         <div className="flex flex-col items-center gap-2">
-          <span className="text-3xl font-bold text-gray-900 tracking-tight">CRS</span>
+          <span className="text-3xl font-bold text-gray-900 tracking-tight">Smidgeon</span>
           <span className="text-sm text-gray-500 font-medium">Classroom Response System</span>
           <span className="text-xs text-gray-400">Knox College</span>
         </div>
