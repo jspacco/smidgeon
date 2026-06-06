@@ -137,14 +137,25 @@ export default function CreateCoursePage() {
             </p>
           )}
 
-          <Button
-            type="submit"
-            size="lg"
-            className="w-full"
-            disabled={submitting}
-          >
-            {submitting ? 'Creating…' : 'Create course'}
-          </Button>
+          <div className="flex gap-3">
+            <Button
+              type="submit"
+              size="lg"
+              className="flex-1"
+              disabled={submitting}
+            >
+              {submitting ? 'Creating…' : 'Create course'}
+            </Button>
+            <Button
+              type="button"
+              size="lg"
+              variant="secondary"
+              disabled={submitting}
+              onClick={() => navigate('/courses')}
+            >
+              Cancel
+            </Button>
+          </div>
         </form>
       </div>
     </main>
