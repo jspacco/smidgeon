@@ -157,15 +157,15 @@ export default function SessionPage() {
           ((attendRes.data ?? []) as Array<{ user_id: string }>).map((r) => r.user_id)
         )
 
-        const rows: AttendeeRow[] = ((enrollRes.data ?? []) as Array<{
+        const rows: AttendeeRow[] = ((enrollRes.data ?? []) as unknown as Array<{
           user_id: string
-          users: { name: string; email: string } | null
+          users: { name: string; email: string }[] | null
         }>)
-          .filter((r) => r.users !== null)
+          .filter((r) => r.users !== null && r.users.length > 0)
           .map((r) => ({
             user_id: r.user_id,
-            name: r.users!.name,
-            email: r.users!.email,
+            name: r.users![0]!.name,
+            email: r.users![0]!.email,
             attended: attendedIds.has(r.user_id),
           }))
           .sort((a, b) => a.name.localeCompare(b.name))
