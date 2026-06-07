@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-06-06 10
+- student-pwa auth.ts: redirectTo now uses /auth/callback (was bare origin); consistent with faculty-dashboard
+- all .env.local files: removed unused VITE_REDIRECT_URL entries
+
 ## 2026-06-06 9
 - supabase migration 009: added default_multi_answer boolean NOT NULL DEFAULT true to courses table
 - packages/types Course: added default_multi_answer and archived_at fields
