@@ -9,11 +9,11 @@ import { SessionSummaryTable } from '../components/SessionSummaryTable'
 // ---- types for joined data -----------------------------------------------
 
 interface ResponseWithUser extends CRSResponse {
-  users: { name: string; email: string } | null
+  users: { name: string; email: string }[]
 }
 
 interface AttendanceWithUser extends SessionAttendance {
-  users: { name: string; email: string } | null
+  users: { name: string; email: string }[]
 }
 
 // ---- helpers ---------------------------------------------------------------
@@ -341,8 +341,8 @@ export function SessionDetailPage() {
                 <tbody>
                   {attendance.map((a) => (
                     <tr key={a.id} className="border-b border-gray-100 last:border-0">
-                      <td className="px-4 py-3 text-gray-900">{a.users?.name ?? '—'}</td>
-                      <td className="px-4 py-3 text-gray-500">{a.users?.email ?? '—'}</td>
+                      <td className="px-4 py-3 text-gray-900">{a.users?.[0]?.name ?? '—'}</td>
+                      <td className="px-4 py-3 text-gray-500">{a.users?.[0]?.email ?? '—'}</td>
                       <td className="px-4 py-3 text-gray-400 whitespace-nowrap">
                         {formatDateTime(a.scanned_at)}
                       </td>
@@ -482,7 +482,7 @@ function QuestionCard({
                   {freeResponses.map((r) => (
                     <tr key={r.id} className="border-b border-gray-100 last:border-0">
                       <td className="px-3 py-2 text-gray-700 whitespace-nowrap">
-                        {r.users?.name ?? r.users?.email ?? '—'}
+                        {r.users?.[0]?.name ?? r.users?.[0]?.email ?? '—'}
                       </td>
                       <td className="px-3 py-2 text-gray-900">{r.response}</td>
                       <td className="px-3 py-2 text-gray-400 whitespace-nowrap">
