@@ -30,8 +30,8 @@ export function useCourses(): UseCourseResult {
         if (fetchError) throw fetchError
         if (cancelled) return
 
-        const enrolled: Course[] = (data ?? [])
-          .map((row: { course: Course | null }) => row.course)
+        const enrolled: Course[] = (data as unknown as Array<{ course: Course[] | null }> ?? [])
+          .map((row: { course: Course[] | null }) => row.course?.[0])
           .filter((c): c is Course => c !== null)
 
         setCourses(enrolled)
