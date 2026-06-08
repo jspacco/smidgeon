@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-06-08 2
+- student-pwa AuthCallback.tsx: new page — checks session, redirects to / (landing) or /login
+- student-pwa App.tsx: added /auth/callback route wired to AuthCallback
+
 ## 2026-06-08
 - student-pwa tsconfig.json: added "types": ["vite/client"] to fix ImportMeta.env TS errors in auth.ts, supabase.ts, LoginPage.tsx
 - student-pwa hooks/useCourses.ts: fixed Supabase join type cast — changed `{ course: Course | null }` to `{ course: Course[] | null }` and updated .map to use row.course?.[0]; matches SessionPage.tsx pattern

@@ -4,6 +4,7 @@ import { useSession } from './hooks/useSession'
 import LoginPage from './pages/LoginPage'
 import LandingPage from './pages/LandingPage'
 import SessionPage from './pages/SessionPage'
+import AuthCallback from './pages/AuthCallback'
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useSession()
@@ -42,6 +43,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<RootRedirect />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
         <Route
           path="/courses/:courseId/session/:sessionId"
           element={
