@@ -8,6 +8,7 @@ import CoursesPage from './pages/CoursesPage'
 import CreateCoursePage from './pages/CreateCoursePage'
 import CourseHomePage from './pages/CourseHomePage'
 import SessionPage from './pages/SessionPage'
+import AuthCallback from './pages/AuthCallback'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useSession()
@@ -95,6 +96,7 @@ function AppShell() {
   return (
     <Routes>
       <Route path="/" element={<RootRedirect />} />
+      <Route path="/auth/callback" element={<AuthCallback />} />
       <Route
         path="/courses"
         element={
