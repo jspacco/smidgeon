@@ -1,5 +1,15 @@
 # Changes
 
+## 2026-06-08
+- student-pwa tsconfig.json: added "types": ["vite/client"] to fix ImportMeta.env TS errors in auth.ts, supabase.ts, LoginPage.tsx
+- student-pwa hooks/useCourses.ts: fixed Supabase join type cast — changed `{ course: Course | null }` to `{ course: Course[] | null }` and updated .map to use row.course?.[0]; matches SessionPage.tsx pattern
+
+## 2026-06-07
+- faculty-pwa LoginPage.tsx: redirectTo now uses /auth/callback (was /courses) to match expected OAuth callback flow
+- faculty-pwa AuthCallback.tsx: new page — checks for session and redirects to /courses or /login; handles post-OAuth landing
+- faculty-pwa App.tsx: added /auth/callback route (unprotected) wired to AuthCallback
+- apps/faculty-pwa, apps/student-pwa, apps/faculty-dashboard vercel.json: added catch-all rewrite (/(.*) → /index.html) plus installCommand/buildCommand/outputDirectory; fixes 404 on client-side routes in production
+
 ## 2026-06-06 10
 - student-pwa auth.ts: redirectTo now uses /auth/callback (was bare origin); consistent with faculty-dashboard
 - all .env.local files: removed unused VITE_REDIRECT_URL entries
