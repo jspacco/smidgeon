@@ -1,4 +1,15 @@
+// Manual setup required before loopback OAuth will work:
+//
+// 1. Supabase dashboard → Authentication → URL Configuration → Redirect URLs
+//    Add: http://127.0.0.1
+//
+// 2. Google Cloud Console → OAuth 2.0 Client ID → Authorized redirect URIs
+//    Add: http://127.0.0.1
+//    (Google allows any port on the loopback address for desktop apps — no port needed)
+
 import { useState } from 'react'
+import { invoke } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
 import { supabase } from '../lib/supabase'
 
 const ALLOWED_DOMAIN = import.meta.env.VITE_ALLOWED_DOMAIN as string | undefined
@@ -10,26 +21,44 @@ export function LoginWindow() {
   async function handleGoogleSignIn() {
     setError(null)
     setLoading(true)
+
+    let port: number
     try {
-      const opts: Record<string, string> = {}
-      if (ALLOWED_DOMAIN) {
-        opts['hd'] = ALLOWED_DOMAIN
-      }
-      const { error: authError } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: 'smidgeon://auth/callback',
-          queryParams: Object.keys(opts).length > 0 ? opts : undefined,
-        },
-      })
+      port = await invoke<number>('start_oauth')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start sign-in server.')
+      setLoading(false)
+      return
+    }
+
+    // Register one-time listener for the callback URL the Rust side will emit.
+    const unlisten = await listen<string>('oauth-callback', async (event) => {
+      unlisten()
+      const { error: authError } = await supabase.auth.exchangeCodeForSession(event.payload)
       if (authError) {
         setError(authError.message)
         setLoading(false)
       }
-      // On success the browser will redirect; window stays open until main toolbar
-      // detects the new session and closes this window.
-    } catch {
-      setError('Sign in failed. Please try again.')
+      // On success, onAuthStateChange in App.tsx detects the session and closes this window.
+    })
+
+    const opts: Record<string, string> = {}
+    if (ALLOWED_DOMAIN) {
+      opts['hd'] = ALLOWED_DOMAIN
+    }
+
+    const { error: authError } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `http://127.0.0.1:${port}`,
+        queryParams: Object.keys(opts).length > 0 ? opts : undefined,
+        skipBrowserRedirect: false,
+      },
+    })
+
+    if (authError) {
+      unlisten()
+      setError(authError.message)
       setLoading(false)
     }
   }

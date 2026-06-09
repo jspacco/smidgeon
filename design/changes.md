@@ -1,5 +1,16 @@
 # Changes
 
+## 2026-06-09
+- tauri-controller: replace deep link OAuth (smidgeon://) with loopback OAuth (http://127.0.0.1:{port}) — Google does not allow custom URL schemes as OAuth redirect URIs; loopback is Google's recommended pattern for desktop apps
+- tauri-controller Cargo.toml: replaced tauri-plugin-deep-link with tauri-plugin-oauth = "2"
+- tauri-controller lib.rs: replaced deep-link plugin with tauri-plugin-oauth::init(); added start_oauth Tauri command that spawns the localhost server and emits "oauth-callback" event with the redirect URL
+- tauri-controller tauri.conf.json: removed plugins.deep-link block (no config needed for oauth plugin)
+- tauri-controller capabilities/default.json: removed deep-link:default permission
+- tauri-controller LoginWindow.tsx: rewrote handleGoogleSignIn — invokes start_oauth to get port, registers listen('oauth-callback') handler that calls exchangeCodeForSession, then calls signInWithOAuth with redirectTo: 'http://127.0.0.1:{port}'; added comment documenting required manual steps in Supabase and Google Cloud Console
+- tauri-controller AuthCallback.tsx: deleted (loopback approach handles callback in LoginWindow, no separate route needed)
+- tauri-controller App.tsx: removed AuthCallback import and /auth/callback route
+- tauri-controller package.json: removed @tauri-apps/plugin-deep-link (invoke and listen come from @tauri-apps/api already in dependencies)
+
 ## 2026-06-08 3
 - tauri-controller: implement deep link OAuth — adds smidgeon:// URL scheme via tauri-plugin-deep-link so the Google OAuth callback returns to the app instead of the system browser
 - tauri-controller Cargo.toml: added tauri-plugin-deep-link = "2"
