@@ -9,6 +9,7 @@ import { SessionSelector } from './components/SessionSelector'
 import { ResultsWindow } from './windows/ResultsWindow'
 import { QRWindow } from './windows/QRWindow'
 import { LoginWindow } from './windows/LoginWindow'
+import { AuthCallback } from './windows/AuthCallback'
 import type { User } from '@supabase/supabase-js'
 import type { Course, CRSSession, CRSQuestion, QuestionType } from '@crs/types'
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
@@ -322,6 +323,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<ToolbarApp />} />
         <Route path="/login" element={<LoginWindow />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/results" element={<ResultsWindow />} />
         <Route path="/qr" element={<QRWindow />} />
       </Routes>

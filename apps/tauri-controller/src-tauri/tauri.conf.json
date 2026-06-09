@@ -1,5 +1,5 @@
 {
-  "productName": "CRS Controller",
+  "productName": "Smidgeon Controller",
   "version": "0.0.1",
   "identifier": "edu.knox.crs.controller",
   "build": {
@@ -12,7 +12,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "CRS Controller",
+        "title": "Smidgeon Controller",
         "width": 480,
         "height": 60,
         "resizable": false,
@@ -23,7 +23,8 @@
         "transparent": false,
         "center": false,
         "x": 0,
-        "y": 0
+        "y": 0,
+        "devtools": true
       }
     ],
     "security": {
@@ -34,5 +35,12 @@
     "active": true,
     "targets": "all",
     "icon": ["icons/icon.icns"]
+  },
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["smidgeon"]
+      }
+    }
   }
 }

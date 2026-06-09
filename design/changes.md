@@ -1,5 +1,17 @@
 # Changes
 
+## 2026-06-08 3
+- tauri-controller: implement deep link OAuth — adds smidgeon:// URL scheme via tauri-plugin-deep-link so the Google OAuth callback returns to the app instead of the system browser
+- tauri-controller Cargo.toml: added tauri-plugin-deep-link = "2"
+- tauri-controller lib.rs: registered deep link plugin in Tauri builder chain
+- tauri-controller tauri.conf.json: declared smidgeon:// scheme under plugins.deep-link.desktop
+- tauri-controller capabilities/default.json: added deep-link:default permission
+- tauri-controller supabase.ts: added flowType: 'pkce' to auth config (required for PKCE code exchange)
+- tauri-controller LoginWindow.tsx: added redirectTo: 'smidgeon://auth/callback' to signInWithOAuth options
+- tauri-controller AuthCallback.tsx: new window component — listens for deep link URL, calls exchangeCodeForSession; session detection handled by existing onAuthStateChange in App.tsx
+- tauri-controller App.tsx: added /auth/callback route pointing to AuthCallback
+- tauri-controller package.json: added @tauri-apps/plugin-deep-link ^2.0.0 to devDependencies
+
 ## 2026-06-08 2
 - student-pwa AuthCallback.tsx: new page — checks session, redirects to / (landing) or /login
 - student-pwa App.tsx: added /auth/callback route wired to AuthCallback

@@ -18,6 +18,7 @@ export function LoginWindow() {
       const { error: authError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
+          redirectTo: 'smidgeon://auth/callback',
           queryParams: Object.keys(opts).length > 0 ? opts : undefined,
         },
       })
