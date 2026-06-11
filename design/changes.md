@@ -1,5 +1,11 @@
 # Changes
 
+## 2026-06-11
+- tauri-controller LoginWindow.tsx: fix OAuth browser open — use skipBrowserRedirect: true so Supabase returns the URL instead of trying window.location, then call open(data.url) via @tauri-apps/plugin-shell
+- tauri-controller package.json: add @tauri-apps/plugin-shell ^2
+- tauri-controller lib.rs: register tauri_plugin_shell::init() in Tauri builder chain
+- tauri-controller tauri.conf.json: add plugins.shell.open: true to grant open permission
+
 ## 2026-06-09
 - tauri-controller: replace deep link OAuth (smidgeon://) with loopback OAuth (http://127.0.0.1:{port}) — Google does not allow custom URL schemes as OAuth redirect URIs; loopback is Google's recommended pattern for desktop apps
 - tauri-controller Cargo.toml: replaced tauri-plugin-deep-link with tauri-plugin-oauth = "2"

@@ -10,6 +10,7 @@
 import { useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
+import { open } from '@tauri-apps/plugin-shell'
 import { supabase } from '../lib/supabase'
 
 const ALLOWED_DOMAIN = import.meta.env.VITE_ALLOWED_DOMAIN as string | undefined
@@ -47,12 +48,12 @@ export function LoginWindow() {
       opts['hd'] = ALLOWED_DOMAIN
     }
 
-    const { error: authError } = await supabase.auth.signInWithOAuth({
+    const { data, error: authError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: `http://127.0.0.1:${port}`,
         queryParams: Object.keys(opts).length > 0 ? opts : undefined,
-        skipBrowserRedirect: false,
+        skipBrowserRedirect: true,
       },
     })
 
@@ -60,6 +61,11 @@ export function LoginWindow() {
       unlisten()
       setError(authError.message)
       setLoading(false)
+      return
+    }
+
+    if (data.url) {
+      await open(data.url)
     }
   }
 

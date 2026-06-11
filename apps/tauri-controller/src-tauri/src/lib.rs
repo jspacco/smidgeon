@@ -1,4 +1,4 @@
-use tauri::Manager;
+use tauri::Emitter;
 
 #[tauri::command]
 async fn start_oauth(window: tauri::Window) -> Result<u16, String> {
@@ -11,6 +11,7 @@ async fn start_oauth(window: tauri::Window) -> Result<u16, String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_oauth::init())
         .invoke_handler(tauri::generate_handler![start_oauth])
         .run(tauri::generate_context!())
