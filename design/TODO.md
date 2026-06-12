@@ -48,3 +48,10 @@ Contents for each:
 
 This tells Vercel to install from the monorepo root so 
 workspace packages (@crs/types, @crs/ui) resolve correctly.
+
+Note that for each Vercel project we configured => Settings => Build and Deployment => "Skip deployments when there are no changes to the root directory or its dependencies." to _Enabled_. So that we don't deploy new Vercel releases for every push to main.
+
+## Features
+* Screenshots
+* Choose correct answer for MCQ
+* Microsoft SSO
