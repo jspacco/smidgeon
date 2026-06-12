@@ -1,5 +1,9 @@
 import { useState } from 'react'
+import { invoke } from '@tauri-apps/api/core'
+import { open } from '@tauri-apps/plugin-shell'
 import { supabase } from '../lib/supabase'
+
+const ALLOWED_DOMAIN = import.meta.env.VITE_ALLOWED_DOMAIN as string | undefined
 
 export function LoginView() {
   const [error, setError] = useState<string | null>(null)
@@ -8,47 +12,81 @@ export function LoginView() {
   async function handleGoogleSignIn() {
     setError(null)
     setLoading(true)
+
+    let port: number
     try {
-      const { error: authError } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          queryParams: {
-            hd: 'knox.edu',
-          },
-        },
-      })
-      if (authError) {
-        setError(authError.message)
-      }
-    } catch {
-      setError('Sign in failed. Please try again.')
-    } finally {
+      port = await invoke<number>('start_oauth')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start sign-in server.')
       setLoading(false)
+      return
     }
+
+    const opts: Record<string, string> = {}
+    if (ALLOWED_DOMAIN) {
+      opts['hd'] = ALLOWED_DOMAIN
+    }
+
+    const { data, error: authError } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `http://127.0.0.1:${port}`,
+        queryParams: Object.keys(opts).length > 0 ? opts : undefined,
+        skipBrowserRedirect: true,
+      },
+    })
+
+    if (authError) {
+      setError(authError.message)
+      setLoading(false)
+      return
+    }
+
+    if (data.url) {
+      await open(data.url)
+    }
+    // oauth-callback listener in App.tsx handles the rest
   }
 
   return (
-    <div
-      className="flex flex-col items-center justify-center h-full bg-gray-900 px-4"
-      style={{ height: 60 }}
-    >
-      <div className="flex items-center gap-4">
-        <span className="text-sm font-semibold text-gray-300">CRS Controller</span>
-        <button
-          onClick={handleGoogleSignIn}
-          disabled={loading}
-          className="px-4 h-8 rounded-lg bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          aria-label="Sign in with Google Knox account"
-        >
-          {loading ? 'Signing in…' : 'Sign in with Google'}
-        </button>
-        <span className="text-xs text-gray-500">@knox.edu only</span>
-        {error && (
-          <span role="alert" className="text-xs text-red-400">
-            {error}
-          </span>
-        )}
+    <main className="min-h-screen flex flex-col items-center justify-center bg-gray-900 px-6">
+      <div className="w-full max-w-sm bg-gray-800 border border-gray-700 rounded-2xl p-8 flex flex-col items-center gap-6">
+        <div className="flex flex-col items-center gap-1 text-center">
+          <span className="text-2xl font-bold text-white tracking-tight">CRS Controller</span>
+          <span className="text-sm text-gray-400">Classroom Response System</span>
+          {ALLOWED_DOMAIN && (
+            <span className="text-xs text-gray-500 mt-1">@{ALLOWED_DOMAIN} accounts only</span>
+          )}
+        </div>
+
+        <div className="w-full border-t border-gray-700" />
+
+        <div className="w-full flex flex-col gap-3">
+          <button
+            onClick={() => void handleGoogleSignIn()}
+            disabled={loading}
+            className="w-full h-12 rounded-xl bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-semibold text-base transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-label={ALLOWED_DOMAIN ? `Sign in with Google ${ALLOWED_DOMAIN} account` : 'Sign in with Google'}
+          >
+            {loading ? 'Opening browser…' : 'Sign in with Google'}
+          </button>
+
+          <button
+            disabled
+            className="w-full h-12 rounded-xl border border-gray-600 text-gray-500 font-semibold text-base cursor-not-allowed"
+            aria-label="Sign in with Microsoft — coming soon"
+          >
+            Sign in with Microsoft
+            <span className="ml-2 text-xs font-normal text-gray-600">(coming soon)</span>
+          </button>
+
+          {error && (
+            <p role="alert" className="text-sm text-red-400 text-center bg-red-900/30 rounded-lg px-3 py-2">
+              {error}
+            </p>
+          )}
+        </div>
       </div>
-    </div>
+    </main>
   )
 }

@@ -6,12 +6,14 @@ import { useCurrentQuestion } from './hooks/useCurrentQuestion'
 import { useLiveResponses } from './hooks/useLiveResponses'
 import { ControllerToolbar } from './components/ControllerToolbar'
 import { SessionSelector } from './components/SessionSelector'
+import { LoginView } from './components/LoginView'
 import { ResultsWindow } from './windows/ResultsWindow'
 import { QRWindow } from './windows/QRWindow'
-import { LoginWindow } from './windows/LoginWindow'
 import type { User } from '@supabase/supabase-js'
 import type { Course, CRSSession, CRSQuestion, QuestionType } from '@crs/types'
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
+import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window'
+import { listen } from '@tauri-apps/api/event'
 
 interface AppSettings {
   optionCount: number
@@ -26,14 +28,13 @@ function ToolbarApp() {
   const [activeSession, setActiveSession] = useState<CRSSession | null>(null)
   const [settings, setSettings] = useState<AppSettings>({
     optionCount: 5,
-    multiAnswer: false,
+    multiAnswer: true,
     screenshotsOn: false,
   })
   const [selectedType, setSelectedType] = useState<QuestionType>('MCQ_SINGLE')
   const [actionError, setActionError] = useState<string | null>(null)
   const [showRevoteButton, setShowRevoteButton] = useState(false)
   const [resultsWindowOpen, setResultsWindowOpen] = useState(false)
-  const [loginWindowOpen, setLoginWindowOpen] = useState(false)
 
   const { question, isConnected: questionsConnected } = useCurrentQuestion(
     activeSession?.id ?? null,
@@ -46,60 +47,43 @@ function ToolbarApp() {
   const isActive = question?.status === 'ACTIVE'
   const isClosed = question?.status === 'CLOSED'
 
-  // Auth listener
+  // Auth listener + oauth-callback handler + window resize
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setUser(data.session?.user ?? null)
+    const win = getCurrentWindow()
+
+    const oauthUnlistenPromise = listen<string>('oauth-callback', async (event) => {
+      await supabase.auth.exchangeCodeForSession(event.payload)
+    })
+
+    supabase.auth.getSession().then(async ({ data }) => {
+      const u = data.session?.user ?? null
+      setUser(u)
       setLoading(false)
+      if (u) {
+        await win.setSize(new LogicalSize(480, 60))
+      } else {
+        await win.setSize(new LogicalSize(480, 340))
+      }
     })
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const u = session?.user ?? null
+      setUser(u)
       setLoading(false)
+      if (u) {
+        await win.setSize(new LogicalSize(480, 60))
+      } else {
+        await win.setSize(new LogicalSize(480, 340))
+      }
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      subscription.unsubscribe()
+      oauthUnlistenPromise.then((unlisten) => unlisten())
+    }
   }, [])
-
-  function openLoginWindow() {
-    const win = new WebviewWindow('login', {
-      url: '#/login',
-      title: 'Smidgeon — Sign In',
-      width: 480,
-      height: 340,
-      resizable: false,
-      center: true,
-      alwaysOnTop: true,
-    })
-    setLoginWindowOpen(true)
-    win.onCloseRequested(() => setLoginWindowOpen(false))
-  }
-
-  async function handleSignInClick() {
-    if (loginWindowOpen) {
-      // Window is open but may be behind other windows — bring it to front
-      const win = await WebviewWindow.getByLabel('login')
-      await win?.setFocus()
-      return
-    }
-    openLoginWindow()
-  }
-
-  // Open login popup when unauthenticated; close it when auth succeeds
-  useEffect(() => {
-    if (loading) return
-
-    if (!user && !loginWindowOpen) {
-      openLoginWindow()
-    }
-
-    if (user && loginWindowOpen) {
-      WebviewWindow.getByLabel('login').then((win) => win?.close())
-      setLoginWindowOpen(false)
-    }
-  }, [user, loading])
 
   // Sync defaults from selected course
   useEffect(() => {
@@ -255,20 +239,7 @@ function ToolbarApp() {
   }
 
   if (!user) {
-    return (
-      <button
-        onClick={() => void handleSignInClick()}
-        className="w-full flex items-center justify-center bg-gray-900 hover:bg-gray-800 transition-colors cursor-pointer"
-        style={{ height: 60 }}
-        aria-label={loginWindowOpen ? 'Bring sign-in window to front' : 'Open sign-in window'}
-      >
-        <p className="text-xs text-gray-500 select-none">
-          {loginWindowOpen
-            ? 'Smidgeon Controller — click to show sign-in window'
-            : 'Smidgeon Controller — click to sign in'}
-        </p>
-      </button>
-    )
+    return <LoginView />
   }
 
   if (!activeSession || !selectedCourse) {
@@ -321,7 +292,6 @@ export default function App() {
     <HashRouter>
       <Routes>
         <Route path="/" element={<ToolbarApp />} />
-        <Route path="/login" element={<LoginWindow />} />
         <Route path="/results" element={<ResultsWindow />} />
         <Route path="/qr" element={<QRWindow />} />
       </Routes>

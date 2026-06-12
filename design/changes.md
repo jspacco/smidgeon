@@ -1,5 +1,18 @@
 # Changes
 
+## 2026-06-12 — Remove login popup, move auth to main window
+
+**Why:** In production builds, WebKit treats each WebviewWindow as an isolated storage context. The PKCE code verifier written to localStorage when `signInWithOAuth` is called in the popup is inaccessible when `exchangeCodeForSession` runs in a different window context, causing "invalid flow state." Moving all auth to the main window eliminates the isolation problem entirely. The popup was only added to work around the 60px toolbar height; the main window can simply resize to 340px for login and back to 60px after auth succeeds.
+
+**Prompt:** Remove Login Popup Window, Move Auth to Main Window — full task prompt as provided in session.
+
+**Changes:**
+- `src/components/LoginView.tsx`: rewritten with full loopback OAuth logic (invoke start_oauth, signInWithOAuth with skipBrowserRedirect, open browser via shell plugin); no oauth-callback listener here — that's in App.tsx; added disabled "Sign in with Microsoft (coming soon)" button
+- `src/App.tsx`: removed loginWindowOpen state, openLoginWindow(), handleSignInClick(), and the useEffect that managed the popup; added listen('oauth-callback') in the auth useEffect to call exchangeCodeForSession; added getCurrentWindow().setSize() resize calls (340px when logged out, 60px when logged in); renders LoginView inline when user is null; removed /login route
+- `src/windows/LoginWindow.tsx`: deleted — no longer used
+- `src-tauri/capabilities/default.json`: removed "login" from windows array
+- `src-tauri/tauri.conf.json`: initial window height changed from 60 to 340 (app launches at login size)
+
 ## 2026-06-11
 - tauri-controller LoginWindow.tsx: fix OAuth browser open — use skipBrowserRedirect: true so Supabase returns the URL instead of trying window.location, then call open(data.url) via @tauri-apps/plugin-shell
 - tauri-controller package.json: add @tauri-apps/plugin-shell ^2
