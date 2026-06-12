@@ -7,7 +7,10 @@ Works on phones. No hardware, no per-student subscription, no textbook publisher
 
 Revote button provides first-class support for peer instruction.
 
-Open Source software, MIT License. We host for a bit money, or you host for a bit of time.
+Open Source software, GNU Affero General Public License 3.0. You can host it yourself.
+
+We host for a bit of your money, or you host for a bit of your time.
+
 
 ---
 
