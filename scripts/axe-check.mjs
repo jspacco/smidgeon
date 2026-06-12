@@ -13,6 +13,7 @@ const page = await context.newPage()
 
 try {
   await page.goto(url)
+  await page.waitForSelector('main', { timeout: 5000 })
   const results = await new AxeBuilder({ page }).analyze()
 
   if (results.violations.length > 0) {
