@@ -1,9 +1,9 @@
 use tauri::Emitter;
 
 #[tauri::command]
-async fn start_oauth(window: tauri::Window) -> Result<u16, String> {
+async fn start_oauth(app: tauri::AppHandle) -> Result<u16, String> {
     tauri_plugin_oauth::start(move |url| {
-        let _ = window.emit("oauth-callback", url);
+        let _ = app.emit("oauth-callback", url);
     })
     .map_err(|e| e.to_string())
 }

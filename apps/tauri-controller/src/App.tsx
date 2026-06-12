@@ -52,7 +52,11 @@ function ToolbarApp() {
     const win = getCurrentWindow()
 
     const oauthUnlistenPromise = listen<string>('oauth-callback', async (event) => {
-      await supabase.auth.exchangeCodeForSession(event.payload)
+      const url = new URL(event.payload)
+      const code = url.searchParams.get('code')
+      if (code) {
+        await supabase.auth.exchangeCodeForSession(code)
+      }
     })
 
     supabase.auth.getSession().then(async ({ data }) => {
