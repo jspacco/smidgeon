@@ -19,6 +19,7 @@ Read this file first, then read `design/design.md` and `design/changes.md` befor
 1. Update `design/changes.md` with a brief entry:
    ```
    ## YYYY-MM-DD
+   The full text of the prompt for this task, reproduced verbatim. This makes the changelog a complete record of *why* the changes were made, not just what was changed
    - What changed and why (one line per thing)
    ```
 2. `git add -A`
