@@ -8,6 +8,7 @@ import AxeBuilder from '@axe-core/playwright'
 const url = process.argv[2] ?? 'http://localhost:4173'
 
 const browser = await chromium.launch()
+const context = await browser.newContext()
 const page = await browser.newPage()
 
 try {
