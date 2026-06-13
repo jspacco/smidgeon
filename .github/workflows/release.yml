@@ -50,6 +50,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Install create-dmg
+        if: matrix.platform == 'macos-latest'
+        run: brew install create-dmg
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
@@ -62,7 +66,9 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: Smidgeon Controller ${{ github.ref_name }}
           releaseBody: |
-            See changes.md for what changed in this release.
+            ## Smidgeon Controller ${{ github.ref_name }}
+            Download the correct file for your platform
+            See the [README](https://github.com/jspacco/smidgeon/blob/main/README.md) for details.
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
