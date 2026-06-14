@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { Button } from '@crs/ui'
+import logo from '../assets/logo.png'
 
 // When set, restricts sign-in to accounts from this domain (e.g. 'knox.edu').
 // Leave unset or empty to allow any Google account.
@@ -34,6 +35,7 @@ export default function LoginPage() {
   return (
     <main className="flex flex-col items-center justify-center min-h-screen bg-gray-50 px-4">
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 w-full max-w-sm text-center">
+        <img src={logo} alt="Smidgeon" className="w-16 h-16 mx-auto mb-4 rounded-full" />
         <h1 className="text-2xl font-bold text-gray-900 mb-1">Smidgeon Faculty</h1>
         <p className="text-gray-500 text-sm mb-8">Classroom Response System</p>
 

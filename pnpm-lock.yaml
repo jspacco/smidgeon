@@ -118,6 +118,9 @@ importers:
       vite:
         specifier: ^6.3.5
         version: 6.4.2(@types/node@22.19.19)(jiti@1.21.7)(terser@5.47.1)
+      vite-plugin-pwa:
+        specifier: ^0.21.2
+        version: 0.21.2(vite@6.4.2(@types/node@22.19.19)(jiti@1.21.7)(terser@5.47.1))(workbox-build@7.4.1(@types/babel__core@7.20.5))(workbox-window@7.4.1)
 
   apps/student-pwa:
     dependencies:
