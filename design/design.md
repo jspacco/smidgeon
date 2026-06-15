@@ -1,5 +1,5 @@
 # Smidgeon — Classroom Response System
-## Design Document v0.5
+## Design Document v2
 
 > Minimal, faculty-controlled CRS. Replaces iClicker for peer instruction workflows.
 > Open source. Self-hostable. A smidgeon better than the alternative.
@@ -9,23 +9,23 @@
 
 ## Overview
 
-A lightweight classroom response system for live voting during lecture. Faculty launch questions from a floating desktop toolbar (Tauri) or phone (PWA) — both surfaces are always active controllers simultaneously. Students respond on their phones via a web app — no app install required. Results flow into a CSV for gradebook import.
+A lightweight classroom response system for live voting during lecture. Faculty launch questions from a floating desktop toolbar (Tauri) or phone (PWA) — both surfaces are always active controllers simultaneously. Students respond on their phones via a web app — no app install required. Results flow into a Postgres DB and export to CSV for gradebook import.
 
-Designed for peer instruction (PI): the same question is asked twice, with a discussion period between rounds. Both rounds are stored separately.
+Designed for peer instruction (PI): the same question is asked twice, with a discussion period between rounds. Both rounds are stored separately. Revote button relaunches the previous question and links to the current question.
 
-Standalone CRS only — no LMS features. The data model is a deliberate subset of a full LMS schema so features can be added later without breaking anything.
+Standalone CRS only — no LMS features.
 
 ---
 
 ## Guiding Principles
 
 - **No pre-planning required** — faculty launch questions live, not from a pre-built bank
-- **Phone is the student device** — no hardware, no app install, just a URL
-- **Peer instruction is first-class** — revote is a single button, not a workaround
+- **Phone is the student device** — no hardware, no app install, just a URL or QR code
+- **Peer instruction is first-class** — revote is a single button
 - **Count up, never down** — timers count up from zero; countdown timers create anxiety
 - **Export everything** — CSV download is always available, no hoops
-- **Knox-first** — v1 restricts to `@knox.edu` Google SSO accounts; domain restriction is one config value, easy to change for other institutions
-- **Open source, self-hostable** — MIT license, runs on Supabase + Vercel or self-hosted
+- **Domain-configurable auth** — `VITE_ALLOWED_DOMAIN` env var restricts Google SSO to a specific domain (e.g. `knox.edu`); unset means any Google account is accepted; one config value to change per institution
+- **Open source, self-hostable** — AGPL-3.0 license, runs on Supabase + Vercel or self-hosted
 - **Faculty nerd aesthetic** — monospace font, thick borders, one accent color, no marketing, no upsell, no onboarding wizard. Looks like it was built by someone who cares about pedagogy, not someone who wants to sell you something.
 
 ---
@@ -37,22 +37,16 @@ Standalone CRS only — no LMS features. The data model is a deliberate subset o
 | Database | Supabase (Postgres) | Auth, Realtime, Storage, RLS |
 | Frontend | React + Vite | Shared component library across apps |
 | Hosting | Vercel | Student PWA + Faculty apps |
-| Desktop controller | Tauri | Always-on-top horizontal toolbar |
-| Auth | Supabase Auth + Google SSO | Knox Google Workspace accounts |
-| Screenshots | Supabase Storage | Optional, attached to questions |
+| Desktop controller | Tauri v2 | Always-on-top horizontal toolbar |
+| Auth | Supabase Auth + Google SSO | PKCE flow; domain restriction via VITE_ALLOWED_DOMAIN |
+| Screenshots | Supabase Storage | Optional, attached to questions (not yet implemented) |
 | Email | Resend | Future use — not in v1 |
 
 ---
 
 ## Visual Design
 
-Two themes, chosen once by faculty in settings, never changed by students:
-
-**Terminal** — JetBrains Mono or Courier New, thick borders, no border-radius, ALL CAPS labels, one accent color, dark toolbar. Looks like a developer tool. Signals "built by a nerd, not a startup."
-
-**Clean** — system-ui, rounded corners, same accent color, familiar app feel.
-
-One accent color applies to both themes. Default: Hacker Cyan `#06B6D4` or faculty choice.
+**Clean** — system-ui, rounded corners, main accent color Hacker Blue `#00BFFF`, secondary accent Knox Gold `#F7A800`,familiar app feel.
 
 **Interaction model is always modern regardless of theme:**
 - Touch-friendly tap targets (minimum 44px)
@@ -60,16 +54,17 @@ One accent color applies to both themes. Default: Hacker Cyan `#06B6D4` or facul
 - Tap to select fills with accent color, white text
 - Immediate visual feedback on every interaction
 
-**Students always see Clean mode** — Terminal is faculty-side only. Student voting experience must be maximally readable on a phone in a classroom.
-
 **Theme and accent stored on the user row:**
+
+Eventually we hope to add other visual themes, but these are as yet unimplemented.
+
 ```sql
 users
   theme   text DEFAULT 'clean' CHECK (theme IN ('clean', 'terminal'))
-  accent  text DEFAULT '#06B6D4'
+  accent  text DEFAULT '#00BFFF'
 ```
 
-**Visual signals of faculty nerd aesthetic (both themes):**
+**Visual signals of faculty nerd aesthetic:**
 - Timestamps in 24-hour time: `2026-01-15 09:47:00`
 - Sessions identified by datetime, not generated names
 - Version number visible: `v0.1`
@@ -87,19 +82,21 @@ users
 ```sql
 users
   id          uuid PK (managed by Supabase Auth)
-  email       text NOT NULL  -- must be @knox.edu for v1; one config value to change
+  email       text NOT NULL
   name        text NOT NULL
   theme       text DEFAULT 'clean' CHECK (theme IN ('clean', 'terminal'))
   accent      text DEFAULT '#06B6D4'
   created_at  timestamptz DEFAULT now()
 
 courses
-  id                   uuid PK DEFAULT gen_random_uuid()
-  name                 text NOT NULL  -- freeform, e.g. "CSCI 241 Databases Winter 26"
-  owner_id             uuid FK → users.id
-  join_code            text NOT NULL UNIQUE  -- permanent course enrollment code e.g. "X7K2M"
-  default_option_count integer DEFAULT 5
-  created_at           timestamptz DEFAULT now()
+  id                    uuid PK DEFAULT gen_random_uuid()
+  name                  text NOT NULL  -- freeform, e.g. "CSCI 241 Databases Winter 26"
+  owner_id              uuid FK → users.id
+  join_code             text NOT NULL UNIQUE  -- permanent course enrollment code e.g. "X7K2M"
+  default_option_count  integer DEFAULT 5
+  default_multi_answer  boolean NOT NULL DEFAULT true  -- default free response mode per course
+  archived_at           timestamptz DEFAULT NULL  -- soft delete; archived courses hidden from lists
+  created_at            timestamptz DEFAULT now()
   -- future SMIDGE LMS fields (nullable, unused in v1):
   institution_id        uuid nullable
   academic_year_term_id uuid nullable
@@ -111,6 +108,15 @@ enrollments
   role        text CHECK (role IN ('INSTRUCTOR', 'TA', 'STUDENT'))
   enrolled_at timestamptz DEFAULT now()
   UNIQUE (course_id, user_id)
+
+course_invitations
+  id          uuid PK DEFAULT gen_random_uuid()
+  course_id   uuid FK → courses.id
+  email       text NOT NULL
+  role        text CHECK (role IN ('INSTRUCTOR', 'TA', 'STUDENT'))
+  invited_by  uuid FK → users.id
+  UNIQUE (course_id, email)
+  -- on first login, handle_new_user trigger auto-enrolls new users from this table
 ```
 
 ### CRS Sessions
@@ -121,8 +127,8 @@ crs_sessions
   course_id       uuid FK → courses.id
   started_at      timestamptz DEFAULT now()
   ended_at        timestamptz nullable
-  qr_token        text NOT NULL UNIQUE  -- gates session access AND marks attendance
-  session_code    text NOT NULL UNIQUE  -- short 6-digit text code for faculty-pwa without QR
+  qr_token        text NOT NULL UNIQUE  -- UUID encoded in QR code
+  session_code    text NOT NULL UNIQUE  -- 6-digit numeric code (100000–999999)
   -- Constraint: at most one active session per course at any time
   -- Enforced by: CREATE UNIQUE INDEX one_active_session_per_course
   --              ON crs_sessions (course_id) WHERE ended_at IS NULL;
@@ -135,8 +141,8 @@ crs_sessions
 **Reopening sessions:** Faculty can reopen a previous session. Sets `ended_at` back to null. Makes it the active session. Useful if a session was accidentally closed or class continues after a break.
 
 **Two access codes per session:**
-- `qr_token` — UUID encoded in QR, displayed in Tauri toolbar popup
-- `session_code` — short 6-digit code, displayed in faculty-pwa, read aloud or put on a slide
+- `qr_token` — UUID encoded in QR, displayed in Tauri toolbar popup window
+- `session_code` — 6-digit numeric code, displayed in faculty-pwa, read aloud or put on a slide or written on the board
 
 ### CRS Questions
 
@@ -148,8 +154,9 @@ crs_questions
   type               text CHECK (type IN ('MCQ_SINGLE', 'MCQ_MULTI', 'FREE_RESPONSE'))
   option_count       integer nullable  -- 2-5 for MCQ, null for FREE_RESPONSE
                      -- defaults from courses.default_option_count, overridable per question
-  multi_answer       boolean DEFAULT false
-                     -- FREE_RESPONSE only: students can submit multiple separate answers
+  multi_answer       boolean DEFAULT true
+                     -- FREE_RESPONSE only: true = multiple submissions per student allowed
+                     -- defaults from courses.default_multi_answer, overridable per question
   status             text CHECK (status IN ('PENDING', 'ACTIVE', 'CLOSED')) DEFAULT 'PENDING'
   results_visible    boolean DEFAULT false
   parent_question_id uuid nullable FK → crs_questions.id  -- revote links here
@@ -157,7 +164,7 @@ crs_questions
   duration_seconds   integer nullable  -- computed on close
   launched_at        timestamptz nullable
   closed_at          timestamptz nullable
-  screenshot_url     text nullable
+  screenshot_url     text nullable  -- not yet implemented
 
 crs_responses
   id           uuid PK DEFAULT gen_random_uuid()
@@ -165,10 +172,14 @@ crs_responses
   user_id      uuid FK → users.id
   response     text NOT NULL  -- "A" through "E" or free text
   submitted_at timestamptz DEFAULT now()
-  -- NO UNIQUE constraint: MCQ single-answer enforced at application level
+  -- NO UNIQUE constraint: MCQ single-answer enforced at application level via upsert
   -- FREE_RESPONSE multi_answer=true allows multiple rows per student
   -- Always use COUNT(DISTINCT user_id) for "how many answered"
 ```
+
+**Free response behavior:**
+- `multi_answer=false` — single answer per student; upserts on resubmit; textarea pre-populated with existing answer on load
+- `multi_answer=true` — multiple rows per student allowed; textarea clears after each submit; shows "N responses submitted" count
 
 ### Attendance
 
@@ -200,6 +211,28 @@ GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO service_role;
 ```
+
+---
+
+## Permission Model
+
+| Action | INSTRUCTOR | TA | STUDENT |
+|---|---|---|---|
+| Create course | ✓ | ✓ | ✓ |
+| Manage enrollments | ✓ | — | — |
+| Delete/archive course | ✓ | — | — |
+| Run sessions | ✓ | ✓ | — |
+| Download data / CSV | ✓ | ✓ | — |
+| Respond to questions | — | — | ✓ |
+
+**RLS key rules:**
+- Anyone authenticated can create a course
+- Self-enrollment via join_code enforces `role = STUDENT`
+- INSTRUCTOR/TA assignment only by existing INSTRUCTOR of that course (via course_invitations)
+- Students can only read sessions/questions for enrolled courses
+- Students can only write their own responses
+- Results visibility controlled by `results_visible` field — never bypass this
+- Archived courses filtered out at query level (`archived_at IS NULL`)
 
 ---
 
@@ -257,15 +290,19 @@ Faculty can mark a student present from the session management UI (accessibility
 
 ### 1. Student PWA
 
-**URL:** TBD — Vercel deployment URL, custom domain later
+**URL:** `smidgeon.app`
 **Device:** Phone, portrait orientation, Clean theme always
-**Auth:** Google SSO (Knox account)
+**Auth:** Google SSO (domain restricted by `VITE_ALLOWED_DOMAIN` if set)
 
 **Screens:**
 
 ```
+Login
+  └── "Smidgeon Student" branding
+  └── [Sign in with Google] button
+
 Landing (home)
-  └── App wordmark
+  └── "smidgeon" wordmark (h1)
   └── [Scan QR code] button — activates camera inline
   └── "or enter code" divider
   └── 6-digit numeric input + [Join session] button
@@ -287,9 +324,14 @@ MCQ_MULTI Question
   └── A B C D E as checkboxes — multiple selections
   └── Same post-close flow as MCQ_SINGLE
 
-Free Response
-  └── Textarea, submit button
-  └── Can resubmit until closed (last wins)
+Free Response (single-answer)
+  └── Textarea pre-populated with existing answer on load
+  └── Upserts on resubmit — "Update response" button label after first submit
+  └── Closes → "You responded. Waiting for results."
+
+Free Response (multi-answer)
+  └── Textarea clears after each submit
+  └── Shows "N responses submitted" count
   └── Closes → "You responded. Waiting for results."
   └── Show → scrolling list of all responses appears
 ```
@@ -319,9 +361,9 @@ Landing → [QR/6-digit code] → Waiting
 
 ### 2. Faculty PWA
 
-**URL:** TBD
+**URL:** `faculty.smidgeon.app`
 **Device:** Phone — always full controller, even when Tauri is running
-**Auth:** Google SSO (Knox account)
+**Auth:** Google SSO (domain restricted by `VITE_ALLOWED_DOMAIN` if set)
 **Theme:** Faculty's chosen theme (Terminal or Clean)
 
 Both Tauri and Faculty PWA are always active controllers. Last write wins. In practice the instructor has one phone and one laptop.
@@ -329,9 +371,11 @@ Both Tauri and Faculty PWA are always active controllers. Last write wins. In pr
 **Screens:**
 
 ```
-Home
-  └── My courses list
-  └── "Create course" — name field, default_option_count
+Home (Courses)
+  └── "{username}'s Courses" heading
+  └── Course list (archived courses hidden)
+  └── "+ Create course" toggle — name field, default_option_count, default_multi_answer
+  └── Logout button
 
 Course Home
   └── Session list — scrollable, newest first
@@ -342,26 +386,32 @@ Course Home
   └── [Start New Session] button — auto-closes any open session
   └── [Reopen] on any closed session — reopens it as active
 
-Active Session View
+Active Session View — Control mode
   └── Session datetime header: 2026-01-15 09:47:00
   └── [END SESSION] button — primary, prominent, not in settings
-  └── Session code displayed: SESSION: 7842
-  └── [Show QR as fullscreen] button — for projecting session code as QR
+  └── Session code displayed prominently: SESSION: 784291
+  └── [Show QR as fullscreen] button — fullscreen overlay with large QR + code
   └── [ LAUNCH MCQ / STOP ] — big button, toggles red when active
   └── [ ↺ Revote ] [ 👁 Show/Hide ] — smaller buttons
-  └── [ ⚙ ] — gear icon, opens settings
+  └── [ ⚙ ] — gear icon, opens settings (only when no question active)
   └── Live count: "18 voted"
   └── Live vertical bar chart for MCQ (instructor-private)
   └── Live scrolling free response answers
   └── Count-up timer while question active: 01:47
+  └── Attendance section (collapsible): enrolled students with ✓ Present or [Mark present]
+
+Active Session View — Monitor mode
+  └── Immersive full-screen chart + vote count
+  └── Revote + Show/Hide results at bottom
+  └── Settings gear hidden
+  └── Wake lock acquired
 ```
 
-**Session code display:**
-- Session code is a short 6-digit code unique to the session
-- Displayed prominently in the active session view
-- Faculty can project it, read it aloud, or put it on a slide
-- [Show QR as fullscreen] button shows QR version for students to scan
-- Both QR and 6-digit code do the same thing — gate session entry + mark attendance
+**Monitor/Control toggle:**
+- Faculty PWA has a Monitor/Control toggle in the session header
+- Monitor mode: immersive view optimized for watching results, wake lock active
+- Control mode: full launch/stop/settings controls
+- When a new session starts (auto-joined via Realtime), initializes in Monitor mode
 
 **Settings panel (⚙ — only when no question active):**
 ```
@@ -384,13 +434,15 @@ End Session is NOT in settings. It is a primary button in the main session view.
 
 ### 3. Faculty Dashboard
 
-**URL:** TBD
+**URL:** `dashboard.smidgeon.app`
 **Device:** Desktop browser
-**Auth:** Google SSO (Knox account)
+**Auth:** Google SSO (domain restricted by `VITE_ALLOWED_DOMAIN` if set)
 
 ```
 Home
-  └── My courses list, create course
+  └── My courses list (archived courses hidden)
+  └── "+ Create Course" toggle — inline form, hides on success
+  └── Archive course button per row — inline confirm, soft-deletes via archived_at
 
 Course View
   └── Join code display
@@ -420,36 +472,61 @@ CSV Export
 ### 4. Tauri Instructor Controller
 
 **Platform:** Mac and Windows desktop
-**Size:** Horizontal toolbar, always-on-top, ~700×60px
-**Auth:** Google SSO — logs in once, token persists
+**Size:** Horizontal toolbar, always-on-top, 480×60px (login state: 480×340px)
+**Auth:** Google SSO via loopback OAuth (http://127.0.0.1:{port}) — PKCE flow
 **Theme:** Dark background always — regardless of faculty theme choice
 
 The toolbar sits at the top of the screen above the browser showing slides. Students may see it on the projector — it shows **no vote distribution** until instructor clicks Show. Live distribution is always private on the instructor's phone (Faculty PWA).
+
+**Auth flow:**
+1. App launches at 480×340 showing login UI inline (no popup window)
+2. "Sign in with Google" calls `start_oauth` Rust command → gets loopback port
+3. `signInWithOAuth` with `skipBrowserRedirect: true` → gets OAuth URL
+4. `open(url)` via `@tauri-apps/plugin-shell` opens system browser
+5. User completes Google sign-in in browser
+6. Browser redirects to `http://127.0.0.1:{port}?code=...`
+7. Rust captures URL, emits `oauth-callback` event to main window
+8. Main window extracts `code` parameter, calls `exchangeCodeForSession(code)`
+9. `onAuthStateChange` fires, window resizes to 480×60, toolbar appears
+10. Session persists in localStorage — no re-login on next app launch
+
+**Required manual setup for OAuth:**
+- Supabase dashboard → Authentication → URL Configuration → Redirect URLs: add `http://127.0.0.1`
+- Google Cloud Console → OAuth 2.0 Client ID → Authorized redirect URIs: add `http://127.0.0.1`
 
 **UI layout (left to right):**
 
 ```
 ┌──────┬──────┬──────┬────────────────────────┬───────────┬──────────┬──────────┬──────┐
-│  QR  │  ▶/■ │  ↺   │  MCQ Single ∨  01:47   │  18 voted │  Results │  END     │  ⚙  │
-└──────┴──────┴──────┴────────────────────────┴───────────┴──────────┴──────────┴──────┘
-              (revote — appears after question closes, disappears on next launch)
+│ grip │  QR  │  ▶/■ │  ↺   │  type ∨  01:47  │  18 voted │  Results │  END     │  ⚙  │
+└──────┴──────┴──────┴──────┴─────────────────┴───────────┴──────────┴──────────┴──────┘
+                      (revote — appears after question closes, disappears on next launch)
 ```
 
-**[QR]** — opens QR popup window. Same qr_token for entire session.
+**[grip]** — drag handle (leftmost), data-tauri-drag-region, repositions window.
 
-**[▶/■]** — play/stop toggle. Green ▶ idle, red ■ active.
+**[QR]** — miniature QR canvas (40×40px, cyan on dark); clicking opens/closes full QR popup window; turns blue when open.
+
+**[▶/■]** — play/stop split button. Left side launches current type. Right side (▾) opens type dropdown. Green ▶ idle, red ■ active. Launching a new question closes the results window if open.
 
 **[↺]** — Revote. Appears after question closes. Disappears on next launch.
 
-**[MCQ Single ∨ · 01:47]** — type label + dropdown (idle only) + count-up timer.
+**[type ∨ · 01:47]** — type label (shown only when ACTIVE) + count-up timer.
 
 **[18 voted]** — live count, no denominator.
 
-**[Results]** — Show/Hide toggle. Opens results window, pushes chart to students.
+**[Results]** — Show/Hide toggle. Opens results window, pushes chart to students. Closing results window sets `results_visible=false`.
 
-**[END]** — End Session. Primary button. Always visible when session is active. NOT in settings. Sets `ended_at = now()`.
+**[END]** — End Session. Primary button. Always visible when session is active. NOT in settings. Closes QR and results windows. Sets `ended_at = now()`.
 
-**[⚙]** — Settings. Only accessible when no question is active.
+**[⚙]** — Settings. Only accessible when no question is active. Opens panel, resizes window to 480×340.
+
+**Session selector (shown when logged in but no active session):**
+- Course dropdown (INSTRUCTOR courses only, archived courses hidden)
+- Session dropdown (newest first, limit 10, [OPEN] badge on active sessions, "— new session —" as first option)
+- [▶] button — starts new session or reopens selected existing session
+- [+] button — expands window to create new course (name + MCQ option count + free response mode)
+- Logout button
 
 **Results window (separate Tauri window):**
 - Vertical bar chart, bars go up, A B C D E labels at bottom
@@ -459,20 +536,16 @@ The toolbar sits at the top of the screen above the browser showing slides. Stud
 - Closing = Hide = `results_visible=false`
 
 **QR popup window:**
-- Full-size QR for students to scan
-- Closeable
-- Same qr_token valid for entire session
-
-**Session list in Tauri:**
-- Small scrollable panel accessible from ⚙ or a dedicated session button
-- Shows all sessions for current course, newest first
-- [Reopen] on closed sessions, [End] on open sessions
+- Full-size QR (420×420px) for students to scan
+- Session code displayed at text-6xl for projector readability
+- Resizable (600×680, min 400×460)
+- Closeable; toggling QR button closes existing window
 
 **⚙ Settings panel:**
 ```
 Course: CSCI 241 Databases Winter 26
 Join code: X7K2M
-Session code: 7842
+Session code: 784291
 
 ── Question settings ──────────────
 MCQ option count:  [2] [3] [4] [5]
@@ -484,6 +557,7 @@ Screenshots:       [On ●] [Off ○]
 - Auto-captures screen on every question launch when Screenshots=On
 - Uploads to Supabase Storage: `screenshots/{course_id}/{session_id}/{question_id}.png`
 - URL stored on question record
+- **Not yet implemented** — stub in handleLaunch, requires native Tauri screenshot plugin
 
 **Timer:**
 - Driven by `launched_at` from database, not client-side Date.now()
@@ -525,9 +599,14 @@ Screenshots:       [On ●] [Off ○]
 9. Show → `results_visible = true` → bar chart pushed to students
 10. Hide/close window → `results_visible = false` → chart yanked
 
+**Race condition prevention:**
+- student-pwa ignores Realtime updates for questions with a lower sequence_number than currently showing — prevents `results_visible=false` UPDATE on old question snapping student back to "waiting for results" mid-vote on new question
+
 **Session management via Realtime:**
 - Both Tauri and Faculty PWA subscribed to `crs_sessions` for current course
 - Session start/end/reopen broadcasts to all surfaces instantly
+- Faculty PWA auto-navigates to new session on INSERT (app-level hook)
+- Student PWA navigates to landing on `ended_at` becoming non-null
 
 **Disconnect handling:**
 - Students: Supabase Realtime auto-reconnects, no re-scan required
@@ -537,6 +616,7 @@ Screenshots:       [On ●] [Off ○]
 **Concurrent connection estimate:**
 - 30 students + 1 instructor phone + 1 Tauri ≈ 32 connections per session
 - Supabase Pro: 500 concurrent connections → ~15 simultaneous sessions
+- Overage: $10 per 1,000 additional connections
 
 ---
 
@@ -544,17 +624,17 @@ Screenshots:       [On ●] [Off ○]
 
 **Two ways students enter a session — both gate access AND mark attendance:**
 
-**QR scan (Tauri):**
+**QR scan:**
 1. Faculty starts session → `qr_token` (UUID) + `session_code` (6 digits) generated
-2. QR displayed in Tauri popup window
+2. QR displayed in Tauri popup window (or faculty-pwa fullscreen overlay)
 3. Student opens app → landing page → taps [Scan QR code]
 4. Camera scans QR via jsQR
 5. `validate-qr` edge function validates token, auto-enrolls student
 6. `session_attendance` row created (method: QR)
 7. Student enters session
 
-**Session code (faculty-pwa):**
-1. Same session start — `session_code` displayed prominently in faculty-pwa
+**Session code:**
+1. Same session start — `session_code` displayed prominently in faculty-pwa and Tauri settings
 2. Faculty reads it aloud or displays it
 3. Student opens app → landing page → types 6-digit code
 4. `validate-qr` edge function validates code, auto-enrolls student
@@ -563,26 +643,6 @@ Screenshots:       [On ●] [Off ○]
 
 **Manual attendance:**
 Faculty can mark any enrolled student present from session management UI (accessibility accommodation, late arrival, camera failure).
-
----
-
-## Auth and Access Control
-
-**v1 scope:** Knox Google Workspace accounts (`@knox.edu`)
-**Domain restriction:** Single config value — easy to change for other institutions
-
-**Roles:**
-- `INSTRUCTOR` — full access: manage enrollments, run sessions, download data, delete course
-- `TA` — run sessions, download data; cannot manage enrollments or delete course
-- `STUDENT` — respond to questions only
-
-**RLS key rules:**
-- Anyone authenticated can create a course
-- Self-enrollment via join_code enforces `role = STUDENT`
-- INSTRUCTOR/TA assignment only by existing INSTRUCTOR of that course
-- Students can only read sessions/questions for enrolled courses
-- Students can only write their own responses
-- Results visibility controlled by `results_visible` field — never bypass this
 
 ---
 
@@ -595,11 +655,19 @@ Faculty can mark any enrolled student present from session management UI (access
 - Enforces `role = STUDENT` — cannot self-enroll as INSTRUCTOR via this function
 
 **validate-qr:**
-- Validates qr_token OR 6-digit session_code against active session
-- Auto-enrolls student in course as STUDENT if not already enrolled
-- Creates `session_attendance` row
+- Validates qr_token (UUID lookup) OR session_code (active session lookup by 6-digit code)
+- Auto-enrolls student in course as STUDENT if not already enrolled (upsert, ignoreDuplicates)
+- Creates `session_attendance` row (method: QR or CODE)
 - Returns session_id, course_id, course_name so student PWA can navigate directly
-- Now also gates session access — not just attendance
+- Gates session access — not just attendance
+
+---
+
+## Auth and Access Control
+
+**Domain restriction:** `VITE_ALLOWED_DOMAIN` env var. If set, passes `hd` param to Google OAuth restricting to that domain. If unset, any Google account is accepted. Set per deployment — not hardcoded.
+
+**Supabase Auth:** PKCE flow (`flowType: 'pkce'`, `detectSessionInUrl: false`). Session stored in localStorage. Persists across app restarts.
 
 ---
 
@@ -626,8 +694,11 @@ Faculty starts session, students scan in, no questions launched. Valid state —
 **Student arrives late:**
 Faculty can redisplay QR/session code at any time from active session view. Late students scan and enter session. Attendance marked at scan time.
 
-**Knox domain restriction for other institutions:**
-One config value in the codebase. Not scattered through multiple files. Changing it enables a new institution. Multi-institution support is v2 but the path is clear.
+**Tauri OAuth loopback:**
+Google does not allow custom URL schemes (e.g. `smidgeon://`) as OAuth redirect URIs. The loopback approach (`http://127.0.0.1:{port}`) is Google's recommended pattern for desktop apps. `tauri-plugin-oauth` spins up a temporary localhost server per login. The auth code (not the full URL) is passed to `exchangeCodeForSession`.
+
+**MCQ vote changes:**
+Faculty PWA bar chart handles vote changes correctly — UPDATE events decrement old answer and increment new one using a per-user response map.
 
 ---
 
@@ -649,109 +720,46 @@ smidgeon/
     student-pwa/        React/Vite, phone-optimized, Clean theme only, PWA
     faculty-pwa/        React/Vite, phone, Terminal or Clean theme
     faculty-dashboard/  React/Vite, desktop, data export
-    tauri-controller/   Tauri + React, always-on-top horizontal toolbar, dark always
+    tauri-controller/   Tauri v2 + React, always-on-top horizontal toolbar, dark always
   packages/
     types/              Shared TypeScript types — import from here always
     ui/                 Shared React components
   supabase/
-    migrations/         SQL schema files, run in order
+    migrations/         SQL schema files, applied in order (001–009)
     functions/
       validate-qr/      QR token/session code validation + attendance + session access
       join-course/      Enroll student via join_code
   design/
     design.md           This document — canonical spec
-    changes.md          Changelog — updated by weirdo after every task
-  CLAUDE.md             Standing instructions for AI-assisted development
+    changes.md          Changelog — updated after every task
+  scripts/
+    axe-check.mjs       axe-core accessibility runner (CI, currently disabled)
+  .github/
+    workflows/
+      ci.yml            Typecheck + build all web apps on push to main
+      release.yml       Build Tauri controller for Mac + Windows on version tag push
+  CLAUDE.md             Standing instructions for AI-assisted development (Weirdo)
+  LICENSE.txt           GNU Affero General Public License v3.0
   README.md             Project overview
   .gitignore
 ```
 
 ---
 
-## MVP Checklist (Winter Term Pilot)
+## Deployment
 
-**Infrastructure:**
-- [ ] Schema migrations with correct grants (authenticated, anon, service_role)
-- [ ] Partial unique index: one active session per course
-- [ ] Google SSO with Knox domain restriction (single config value)
-- [ ] axe-core in CI pipeline — hard failure on WCAG violations
-- [ ] Storage bucket with ON CONFLICT DO NOTHING
+| App | URL | Platform |
+|---|---|---|
+| Student PWA | smidgeon.app | Vercel |
+| Faculty PWA | faculty.smidgeon.app | Vercel |
+| Faculty Dashboard | dashboard.smidgeon.app | Vercel |
+| Tauri Controller | GitHub Releases | Mac (.dmg), Windows (.exe/.msi) |
 
-**Core course flow:**
-- [ ] Course creation with join_code and default_option_count
-- [ ] Student enrollment via join_code (STUDENT role enforced)
-- [ ] INSTRUCTOR/TA assignment by course owner
+DNS via Cloudflare. Domain: smidgeon.app (GoDaddy, DNS delegated to Cloudflare).
 
-**Session management:**
-- [ ] Start session — generates qr_token (UUID) and session_code (6 digits)
-- [ ] Auto-close open sessions on new session start
-- [ ] Reopen closed session (sets ended_at = null)
-- [ ] End Session as primary button in faculty-pwa AND Tauri toolbar
-- [ ] Session list scrollable newest-first in both surfaces
-- [ ] Session datetime display: YYYY-MM-DD HH:MM:SS 24-hour
+Vercel projects skip deployment when no changes detected in their app directory or shared packages (built-in skip deployments feature).
 
-**Student session access:**
-- [ ] Landing page: QR scan button + 6-digit code input (no course list)
-- [ ] QR scan gates session entry AND marks attendance
-- [ ] 6-digit session code as alternative to QR scan
-- [ ] validate-qr auto-enrolls student in course (role: STUDENT)
-- [ ] validate-qr returns course_id and course_name for navigation
-- [ ] Session ended detection: subscribe to crs_sessions, navigate to landing on ended_at
-- [ ] Disconnect reconnects automatically — no re-scan
-- [ ] Faculty manual attendance marking
-
-**Questions:**
-- [ ] MCQ_SINGLE (radio, upsert while active)
-- [ ] MCQ_MULTI (checkboxes, upsert while active)
-- [ ] FREE_RESPONSE single-answer
-- [ ] FREE_RESPONSE multi-answer (multi_answer=true)
-- [ ] Per-question option count override via ⚙
-- [ ] Realtime push to students instantly
-- [ ] Revote — links to parent, same type, one button
-- [ ] Count-up timer driven by launched_at from database
-
-**Results visibility:**
-- [ ] results_visible field on crs_questions
-- [ ] Show: opens results window + pushes to students
-- [ ] Hide/close: yanks chart from students
-- [ ] Vertical bar chart (bars up, labels along bottom)
-- [ ] Student state machine: Not entered → Waiting → Voting → Closed → Results → Waiting
-
-**Instructor surfaces:**
-- [ ] Tauri: always-on-top horizontal toolbar, dark background
-- [ ] Tauri: QR popup window
-- [ ] Tauri: results window (separate, moveable)
-- [ ] Tauri: End Session as primary toolbar button
-- [ ] Faculty PWA: session code displayed prominently
-- [ ] Faculty PWA: [Show QR as fullscreen] button
-- [ ] Faculty PWA: End Session as primary button (not in settings)
-- [ ] Both: live count "18 voted" (no denominator)
-- [ ] Both: session list with Reopen/End per session
-
-**Screenshots:**
-- [ ] Auto-capture on question launch when Screenshots=On
-- [ ] Upload to Supabase Storage
-- [ ] URL stored on question record
-
-**Visual design:**
-- [ ] Terminal and Clean themes implemented
-- [ ] Students always see Clean
-- [ ] Faculty theme/accent stored on user row
-- [ ] Timestamps in 24-hour format everywhere
-- [ ] Monospace font in Terminal mode
-- [ ] Touch targets minimum 44px everywhere
-
-**Data export:**
-- [ ] CSV session summary
-- [ ] CSV full response detail
-- [ ] CSV course summary
-- [ ] CSV all sessions (whole term in one file)
-- [ ] All exports immediate download, no hoops
-
-**Student PWA:**
-- [ ] Installable to home screen (PWA manifest)
-- [ ] navigator.wakeLock while session active
-- [ ] Reconnecting indicator on Realtime disconnect
+GitHub Actions release workflow triggered by `v*` tags. Design document snapshot tags use `design-v*` prefix and do not trigger builds.
 
 ---
 
