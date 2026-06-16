@@ -30,7 +30,6 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v4
 
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -50,7 +49,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Install create-dmg
+      - name: Install create-dmg (macOS only)
         if: matrix.platform == 'macos-latest'
         run: brew install create-dmg
 
@@ -61,14 +60,22 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_ALLOWED_DOMAIN: ${{ vars.VITE_ALLOWED_DOMAIN }}
+          # Apple signing and notarization (macOS only)
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ vars.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
         with:
           projectPath: apps/tauri-controller
           tagName: ${{ github.ref_name }}
           releaseName: Smidgeon Controller ${{ github.ref_name }}
           releaseBody: |
-            ## Smidgeon Controller ${{ github.ref_name }}
-            Download the correct file for your platform
-            See the [README](https://github.com/jspacco/smidgeon/blob/main/README.md) for details.
+            Download the correct file for your platform:
+            - **Mac (Apple Silicon):** Smidgeon Controller_${{ github.ref_name }}_aarch64.dmg
+            - **Mac (Intel):** Smidgeon Controller_${{ github.ref_name }}_x64.dmg
+            - **Windows:** Smidgeon Controller_${{ github.ref_name }}_x64-setup.exe
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
