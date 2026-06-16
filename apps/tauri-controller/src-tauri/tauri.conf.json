@@ -45,6 +45,12 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "macOS": {
+      "signingIdentity": "Developer ID Application: jaime spacco (599MWR9B9C)",
+      "hardenedRuntime": true,
+      "minimumSystemVersion": "10.13"
+    }
   }
+  
 }
