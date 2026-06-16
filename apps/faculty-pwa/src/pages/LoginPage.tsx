@@ -11,6 +11,8 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
+  // TODO: Microsoft signin
+
   async function handleGoogleSignIn() {
     setError(null)
     setLoading(true)
