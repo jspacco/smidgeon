@@ -5,6 +5,7 @@ import { CoursesPage } from './pages/CoursesPage'
 import { CourseView } from './pages/CourseView'
 import { SessionDetailPage } from './pages/SessionDetailPage'
 import { AuthCallback } from './pages/AuthCallback'
+import { DashboardLayout } from './components/DashboardLayout'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useSession()
@@ -33,7 +34,9 @@ export default function App() {
           path="/courses"
           element={
             <ProtectedRoute>
-              <CoursesPage />
+              <DashboardLayout>
+                <CoursesPage />
+              </DashboardLayout>
             </ProtectedRoute>
           }
         />
@@ -41,7 +44,9 @@ export default function App() {
           path="/courses/:courseId"
           element={
             <ProtectedRoute>
-              <CourseView />
+              <DashboardLayout>
+                <CourseView />
+              </DashboardLayout>
             </ProtectedRoute>
           }
         />
@@ -49,7 +54,9 @@ export default function App() {
           path="/courses/:courseId/sessions/:sessionId"
           element={
             <ProtectedRoute>
-              <SessionDetailPage />
+              <DashboardLayout>
+                <SessionDetailPage />
+              </DashboardLayout>
             </ProtectedRoute>
           }
         />
