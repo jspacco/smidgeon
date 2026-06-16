@@ -1,3 +1,5 @@
+// Is this page still necessary?
+
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { JoinCourseResponse } from '@crs/types'
