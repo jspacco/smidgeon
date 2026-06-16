@@ -26,6 +26,8 @@
 * Revote button always exists, but is greyed out when not in use
 * Exit button, or at least an X in the corner
 * Grab and move widget upon launch
+* single / multi does not highlight default
+* can't see screenshot toggle in settings, either not visible or not implemented
 * Test on windows
 * **Screenshots**
    - [ ] Auto-capture on question launch when Screenshots=On
