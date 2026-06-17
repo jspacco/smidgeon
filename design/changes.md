@@ -1,5 +1,12 @@
 # Changes
 
+## 2026-06-17 (2)
+
+**Prompt:** for this task, read all the current migration files and create a single new migration file. this is possible because we have no actual users or clients right now, the migrations won't run correctly right now anyway, and i need to test that the migrations can be applied to an empty database to verify that self-hosting is going to work. so create a single 001_schema.sql with everything in it, and delete the rest of the migrations.
+
+- `supabase/migrations/001_schema.sql` — consolidated all 10 migrations into one fresh-database schema file; folded all ALTER TABLE increments directly into CREATE TABLE definitions; removed backfill-only UPDATE statements (not needed on empty DB)
+- `supabase/migrations/002–010` — deleted
+
 ## 2026-06-17
 
 **Prompt:** Faculty Email Whitelist via Supabase "Before User Created" Auth Hook — adds a proper server-side allowlist using Supabase's Before User Created Auth Hook implemented as a Postgres function. The hook runs before a new user row is created in auth.users, inspects the incoming user's email, and rejects the signup outright by returning an error if the email is not in the whitelist. VITE_ALLOWED_DOMAIN is NOT removed; it remains as a future configuration knob for institutions self-hosting their own instance. Step 1: new migration — faculty_whitelist table. Step 2: hook function. Step 3: seed initial whitelist entries. Step 4: document manual dashboard step. Step 5: update LoginPage error handling. Step 6: leave VITE_ALLOWED_DOMAIN logic untouched.
