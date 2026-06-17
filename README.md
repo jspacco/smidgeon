@@ -3,13 +3,11 @@
 A classroom response system (CRS) for live voting during college lectures.
 A smidgeon better than the alternative.
 
-Works on phones. No hardware, no per-student subscription, no textbook publisher.
+Works on phones, no hardware, free for students, no textbook publisher.
 
 Revote button provides first-class support for peer instruction.
 
 Open Source software, GNU Affero General Public License 3.0. You can host it yourself.
-
-We host for a bit of your money, or you host for a bit of your time.
 
 
 ---
@@ -49,6 +47,7 @@ Smidgeon is not an LMS. It has no assignments, no gradebook, no file storage, no
 - Tauri (desktop toolbar — Rust + React)
 - Vercel (hosting for web apps)
 - Google SSO via Supabase Auth
+- Microsoft SSO (planned, not yet implemented)
 
 ---
 
@@ -61,7 +60,6 @@ Smidgeon is not an LMS. It has no assignments, no gradebook, no file storage, no
 - **QR attendance** — unique QR code per session, students scan with phone camera, physical presence tracked independently from responses
 - **Screenshots** — optional auto-capture of screen on each question launch, stored in Supabase Storage for post-session analysis
 - **CSV export** — session summary, full response detail, and course summary; always available, no hoops
-- **WCAG AA** — accessibility enforced by axe-core in CI pipeline, hard failure on violations
 
 ---
 
@@ -69,7 +67,7 @@ Smidgeon is not an LMS. It has no assignments, no gradebook, no file storage, no
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 22+
 - pnpm (`npm install -g pnpm`)
 - A Supabase project (free tier at supabase.com is fine)
 - For Tauri: Rust toolchain via rustup.rs
@@ -162,7 +160,7 @@ smidgeon/
 
 ## Contributing
 
-Smidgeon is open source under the MIT license. Contributions welcome — bug reports, pull requests, and institutions wanting to adapt it for their own use.
+Smidgeon is open source under the GNU Affero license. Contributions welcome — bug reports, pull requests, and institutions wanting to adapt it for their own use.
 
 If you're running this at your institution and want to contribute back, please do. The goal is a community, not a product.
 
@@ -180,4 +178,4 @@ It's a smidgeon better than the alternative. That's good enough.
 
 ## License
 
-MIT. Run it on our servers or yours. The software is yours either way.
+GNU Affero. Self-hosting is not trivial, but cheaper than iClicker.
