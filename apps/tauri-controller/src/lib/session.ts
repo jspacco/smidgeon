@@ -186,6 +186,52 @@ export async function setResultsVisible(questionId: string, visible: boolean): P
   if (error) throw new Error(`Failed to set results visibility: ${error.message}`)
 }
 
+// ---------------------------------------------------------------------------
+// Screenshot helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Upload a base64-encoded JPEG to Supabase Storage at
+ * `{courseId}/{sessionId}/{questionId}.jpg` inside the `screenshots` bucket.
+ * Returns the storage path (relative to the bucket).
+ */
+export async function uploadScreenshot(
+  base64Jpeg: string,
+  courseId: string,
+  sessionId: string,
+  questionId: string,
+): Promise<string> {
+  const binaryStr = atob(base64Jpeg)
+  const bytes = new Uint8Array(binaryStr.length)
+  for (let i = 0; i < binaryStr.length; i++) {
+    bytes[i] = binaryStr.charCodeAt(i)
+  }
+  const blob = new Blob([bytes], { type: 'image/jpeg' })
+  const path = `${courseId}/${sessionId}/${questionId}.jpg`
+
+  const { error } = await supabase.storage
+    .from('screenshots')
+    .upload(path, blob, { contentType: 'image/jpeg', upsert: false })
+
+  if (error) throw new Error(`Screenshot upload failed: ${error.message}`)
+  return path
+}
+
+/**
+ * Store the screenshot storage path in crs_questions.screenshot_url.
+ * The faculty dashboard generates a signed URL from this path when displaying.
+ */
+export async function updateScreenshotUrl(questionId: string, path: string): Promise<void> {
+  const { error } = await supabase
+    .from('crs_questions')
+    .update({ screenshot_url: path })
+    .eq('id', questionId)
+
+  if (error) throw new Error(`Failed to update screenshot URL: ${error.message}`)
+}
+
+// ---------------------------------------------------------------------------
+
 export async function launchRevote(parent: CRSQuestion): Promise<CRSQuestion> {
   const seq = await getNextSequenceNumber(parent.session_id)
 

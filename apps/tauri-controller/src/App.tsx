@@ -1,7 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { HashRouter, Route, Routes } from 'react-router-dom'
 import { supabase } from './lib/supabase'
-import { launchQuestion, closeQuestion, setResultsVisible, launchRevote, endSession } from './lib/session'
+import {
+  launchQuestion,
+  closeQuestion,
+  setResultsVisible,
+  launchRevote,
+  endSession,
+  uploadScreenshot,
+  updateScreenshotUrl,
+} from './lib/session'
 import { useCurrentQuestion } from './hooks/useCurrentQuestion'
 import { useLiveResponses } from './hooks/useLiveResponses'
 import { ControllerToolbar } from './components/ControllerToolbar'
@@ -14,11 +22,13 @@ import type { Course, CRSSession, CRSQuestion, QuestionType } from '@crs/types'
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window'
 import { listen } from '@tauri-apps/api/event'
+import { invoke } from '@tauri-apps/api/core'
 
 interface AppSettings {
   optionCount: number
   multiAnswer: boolean
   screenshotsOn: boolean
+  selectedDisplayId: number | null
 }
 
 function ToolbarApp() {
@@ -30,9 +40,13 @@ function ToolbarApp() {
     optionCount: 5,
     multiAnswer: true,
     screenshotsOn: false,
+    selectedDisplayId: null,
   })
   const [selectedType, setSelectedType] = useState<QuestionType>('MCQ_SINGLE')
   const [actionError, setActionError] = useState<string | null>(null)
+  const [screenshotWarning, setScreenshotWarning] = useState<string | null>(null)
+  // Avoid nagging on every launch if capture is broken; warn once per session.
+  const screenshotWarnedRef = useRef(false)
   const [showRevoteButton, setShowRevoteButton] = useState(false)
   const [resultsWindowOpen, setResultsWindowOpen] = useState(false)
 
@@ -110,26 +124,61 @@ function ToolbarApp() {
     if (!activeSession) return
     setActionError(null)
 
-    // TODO: Screenshot capture on question launch
-    // When screenshotsOn=true, capture the screen via Tauri native plugin (requires
-    // tauri-plugin-screenshot or similar), upload PNG to Supabase Storage at path:
-    //   screenshots/{course_id}/{session_id}/{question_id}.png
-    // Then store the public URL in crs_questions.screenshot_url via a follow-up update.
-    // Native plugin setup is outside the scope of this build — stub left here intentionally.
+    // --- Screenshot capture (before launch so we have the bytes ready) ---
+    // Failure here must never block the question from launching.
+    let capturedJpeg: string | null = null
+    if (settings.screenshotsOn && settings.selectedDisplayId !== null) {
+      try {
+        capturedJpeg = await invoke<string>('capture_display', {
+          displayId: settings.selectedDisplayId,
+        })
+      } catch (err) {
+        console.error('Screenshot capture failed:', err)
+        if (!screenshotWarnedRef.current) {
+          screenshotWarnedRef.current = true
+          setScreenshotWarning(
+            'Screenshot capture failed — check Screen Recording permission in System Settings',
+          )
+        }
+      }
+    }
 
+    // --- Launch the question (must succeed regardless of screenshot outcome) ---
     try {
-      await launchQuestion(
+      const newQuestion = await launchQuestion(
         activeSession.id,
         selectedType,
         selectedType === 'FREE_RESPONSE' ? null : settings.optionCount,
         selectedType === 'FREE_RESPONSE' ? settings.multiAnswer : false,
       )
       setShowRevoteButton(false)
-      // Close results window from previous question if still open
       if (resultsWindowOpen) closeResultsWindow()
+
+      // --- Upload screenshot asynchronously (do NOT await — never blocks UI) ---
+      if (capturedJpeg !== null && selectedCourse !== null) {
+        uploadAndAttachScreenshot(capturedJpeg, selectedCourse.id, activeSession.id, newQuestion.id)
+      }
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Failed to launch question')
     }
+  }
+
+  /** Fire-and-forget: upload JPEG bytes to Storage, then write path to screenshot_url. */
+  function uploadAndAttachScreenshot(
+    base64Jpeg: string,
+    courseId: string,
+    sessionId: string,
+    questionId: string,
+  ) {
+    uploadScreenshot(base64Jpeg, courseId, sessionId, questionId)
+      .then((path) => updateScreenshotUrl(questionId, path))
+      .catch((err: unknown) => {
+        console.error('Screenshot upload/attach failed:', err)
+        if (!screenshotWarnedRef.current) {
+          screenshotWarnedRef.current = true
+          setScreenshotWarning('Screenshot upload failed — question saved without screenshot')
+        }
+      })
   }
 
   async function handleStop() {
@@ -229,6 +278,8 @@ function ToolbarApp() {
       setActiveSession(null)
       setSelectedCourse(null)
       setShowRevoteButton(false)
+      setScreenshotWarning(null)
+      screenshotWarnedRef.current = false
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Failed to end session')
     }
@@ -266,6 +317,21 @@ function ToolbarApp() {
           className="absolute top-0 left-0 right-0 text-xs text-red-200 bg-red-900 px-3 py-1 z-50"
         >
           {actionError}
+        </div>
+      )}
+      {screenshotWarning && (
+        <div
+          role="status"
+          className="absolute top-0 left-0 right-0 flex items-center justify-between text-xs text-amber-200 bg-amber-900 px-3 py-1 z-40"
+        >
+          <span>{screenshotWarning}</span>
+          <button
+            onClick={() => setScreenshotWarning(null)}
+            className="ml-2 text-amber-300 hover:text-white font-bold"
+            aria-label="Dismiss screenshot warning"
+          >
+            ×
+          </button>
         </div>
       )}
       <ControllerToolbar

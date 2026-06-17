@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { LogicalSize } from '@tauri-apps/api/dpi'
+import { invoke } from '@tauri-apps/api/core'
 import { CountUpTimer, QRCode, ReconnectingIndicator } from '@crs/ui'
 import { IconChartBar, IconDoorExit, IconGripVertical } from '@tabler/icons-react'
 import type { Course, CRSSession, CRSQuestion, QuestionType } from '@crs/types'
@@ -9,6 +10,17 @@ interface AppSettings {
   optionCount: number
   multiAnswer: boolean
   screenshotsOn: boolean
+  selectedDisplayId: number | null
+}
+
+interface DisplayInfo {
+  id: number
+  x: number
+  y: number
+  width: number
+  height: number
+  scale_factor: number
+  is_primary: boolean
 }
 
 export interface ControllerToolbarProps {
@@ -39,6 +51,23 @@ const TYPE_LABELS: Record<QuestionType, string> = {
 
 const ALL_TYPES: QuestionType[] = ['MCQ_SINGLE', 'MCQ_MULTI', 'FREE_RESPONSE']
 
+// Detect macOS at runtime — used to show/hide the permission check UI.
+const IS_MACOS =
+  typeof navigator !== 'undefined' &&
+  (navigator.platform.includes('Mac') || navigator.userAgent.includes('Macintosh'))
+
+/** Return the id of the display to use by default. */
+function selectDefaultDisplay(list: DisplayInfo[]): number {
+  const first = list[0]
+  if (!first) return 0
+  if (list.length === 1) return first.id
+  const nonPrimary = list.filter((d) => !d.is_primary)
+  if (nonPrimary.length === 0) return first.id
+  return nonPrimary.reduce((best, d) =>
+    d.width * d.height > best.width * best.height ? d : best,
+  ).id
+}
+
 export function ControllerToolbar({
   session,
   course,
@@ -60,15 +89,99 @@ export function ControllerToolbar({
 }: ControllerToolbarProps) {
   const [showSettings, setShowSettings] = useState(false)
 
-  // Resize the Tauri window to reveal the settings panel when open
+  // Display enumeration
+  const [displays, setDisplays] = useState<DisplayInfo[]>([])
+
+  // Permission check state (local to the settings panel)
+  type PermStatus = 'idle' | 'checking' | 'granted' | 'denied'
+  const [permStatus, setPermStatus] = useState<PermStatus>('idle')
+  const [permMsg, setPermMsg] = useState<string | null>(null)
+
+  // Resize the Tauri window to reveal the settings panel when open.
+  // 460px gives room for display picker + permission UI.
   useEffect(() => {
     const win = getCurrentWindow()
     if (showSettings) {
-      void win.setSize(new LogicalSize(480, 340))
+      void win.setSize(new LogicalSize(480, 460))
+      void loadDisplays()
     } else {
       void win.setSize(new LogicalSize(480, 60))
+      setPermStatus('idle')
+      setPermMsg(null)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showSettings])
+
+  async function loadDisplays() {
+    try {
+      const list = await invoke<DisplayInfo[]>('list_displays')
+      setDisplays(list)
+      // Auto-select default if nothing chosen yet
+      if (settings.selectedDisplayId === null && list.length > 0) {
+        onSettingsChange({ ...settings, selectedDisplayId: selectDefaultDisplay(list) })
+      }
+    } catch (err) {
+      console.error('Failed to list displays:', err)
+    }
+  }
+
+  /**
+   * Run a test capture to probe permission.
+   * Called when the user toggles Screenshots → On, or clicks the check button.
+   * On first macOS call this triggers the system permission dialog.
+   */
+  async function checkPermission(displayId: number) {
+    setPermStatus('checking')
+    setPermMsg(null)
+    try {
+      await invoke('capture_display', { displayId })
+      setPermStatus('granted')
+      setPermMsg('Screen recording permission confirmed.')
+    } catch (err) {
+      setPermStatus('denied')
+      setPermMsg(
+        'Screen recording permission denied. macOS asks only once — ' +
+          'enable it manually in Privacy Settings.',
+      )
+      console.error('Screen recording permission check failed:', err)
+    }
+  }
+
+  async function handleScreenshotsToggle(newValue: boolean) {
+    if (newValue === true) {
+      // Immediately attempt a test capture to trigger (or confirm) macOS permission.
+      const displayId =
+        settings.selectedDisplayId ??
+        (displays.length > 0 ? selectDefaultDisplay(displays) : null)
+
+      if (displayId === null) {
+        // No displays loaded yet — just turn it on optimistically.
+        onSettingsChange({ ...settings, screenshotsOn: true })
+        return
+      }
+
+      setPermStatus('checking')
+      setPermMsg(null)
+      try {
+        await invoke('capture_display', { displayId })
+        setPermStatus('granted')
+        setPermMsg('Screen recording permission confirmed.')
+        onSettingsChange({ ...settings, screenshotsOn: true })
+      } catch (err) {
+        setPermStatus('denied')
+        setPermMsg(
+          'Screen recording permission denied. macOS asks only once — ' +
+            'enable it manually in Privacy Settings.',
+        )
+        console.error('Screen recording permission denied:', err)
+        // Do NOT flip screenshotsOn to true — leave it off until permission is confirmed.
+      }
+    } else {
+      onSettingsChange({ ...settings, screenshotsOn: newValue })
+      setPermStatus('idle')
+      setPermMsg(null)
+    }
+  }
 
   const isActive = currentQuestion?.status === 'ACTIVE'
   const hasQuestion = currentQuestion !== null
@@ -357,7 +470,7 @@ export function ControllerToolbar({
               </div>
             </div>
 
-            {/* Screenshots */}
+            {/* Screenshots on/off */}
             <div>
               <p className="text-xs text-gray-300 mb-2">Screenshots</p>
               <div className="flex gap-2" role="radiogroup" aria-label="Screenshot capture">
@@ -378,7 +491,7 @@ export function ControllerToolbar({
                       type="radio"
                       name="settings-screenshots"
                       checked={settings.screenshotsOn === value}
-                      onChange={() => onSettingsChange({ ...settings, screenshotsOn: value })}
+                      onChange={() => void handleScreenshotsToggle(value)}
                       className="sr-only"
                     />
                     {label}
@@ -386,8 +499,75 @@ export function ControllerToolbar({
                 ))}
               </div>
             </div>
-          </div>
 
+            {/* Display picker — shown when screenshots is on and >1 display */}
+            {settings.screenshotsOn && displays.length > 1 && (
+              <div>
+                <label htmlFor="display-picker" className="text-xs text-gray-300 block mb-2">
+                  Capture display
+                </label>
+                <select
+                  id="display-picker"
+                  value={settings.selectedDisplayId ?? ''}
+                  onChange={(e) =>
+                    onSettingsChange({ ...settings, selectedDisplayId: Number(e.target.value) })
+                  }
+                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-2 py-1.5 text-xs text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  {displays.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.width}×{d.height}
+                      {d.scale_factor !== 1 ? ` @${d.scale_factor}×` : ''}
+                      {d.is_primary ? ' (primary)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* macOS permission check button */}
+            {IS_MACOS && (
+              <div className="space-y-2">
+                <button
+                  onClick={() => {
+                    const first = displays[0]
+                    const displayId =
+                      settings.selectedDisplayId ??
+                      (first !== undefined ? first.id : null)
+                    if (displayId !== null) void checkPermission(displayId)
+                  }}
+                  disabled={permStatus === 'checking'}
+                  className="w-full text-xs text-gray-300 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg px-3 py-1.5 transition-colors disabled:opacity-50"
+                >
+                  {permStatus === 'checking'
+                    ? 'Checking…'
+                    : 'Check screen recording permission'}
+                </button>
+
+                {permMsg && (
+                  <div
+                    className={[
+                      'text-xs rounded-lg px-3 py-2 space-y-1',
+                      permStatus === 'granted'
+                        ? 'bg-green-900 text-green-200'
+                        : 'bg-amber-900 text-amber-200',
+                    ].join(' ')}
+                    role="status"
+                  >
+                    <p>{permMsg}</p>
+                    {permStatus === 'denied' && (
+                      <button
+                        onClick={() => void invoke('open_screen_recording_settings')}
+                        className="underline text-amber-300 hover:text-white"
+                      >
+                        Open Privacy Settings
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
