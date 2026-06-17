@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { Button } from '@crs/ui'
 import { signInWithGoogle } from '../lib/auth'
+import logo from '../assets/logo.png'
 
 const ALLOWED_DOMAIN = import.meta.env.VITE_ALLOWED_DOMAIN as string | undefined
+console.log('allowed domain', ALLOWED_DOMAIN)
 
 export function LoginPage() {
   const [error, setError] = useState<string | null>(null)
@@ -23,9 +25,9 @@ export function LoginPage() {
     <main className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="w-full max-w-sm bg-white rounded-2xl shadow-sm border border-gray-200 p-8 flex flex-col items-center gap-6">
         <div className="flex flex-col items-center gap-2">
+          <img src={logo} alt="Smidgeon" className="w-16 h-16 mx-auto mb-4 rounded-full" />
           <span className="text-3xl font-bold text-gray-900 tracking-tight">Smidgeon</span>
-          <span className="text-sm text-gray-500 font-medium">Classroom Response System</span>
-          <span className="text-xs text-gray-400">Knox College</span>
+          <span className="text-sm text-gray-500 font-medium">Faculty Dashboard</span>
         </div>
 
         <div className="w-full border-t border-gray-100" />
