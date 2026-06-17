@@ -503,6 +503,7 @@ name = "crs-controller"
 version = "0.0.1"
 dependencies = [
  "base64 0.22.1",
+ "core-graphics 0.22.3",
  "image 0.25.10",
  "screenshots",
  "serde",

@@ -56,17 +56,6 @@ const IS_MACOS =
   typeof navigator !== 'undefined' &&
   (navigator.platform.includes('Mac') || navigator.userAgent.includes('Macintosh'))
 
-/** Return the id of the display to use by default. */
-function selectDefaultDisplay(list: DisplayInfo[]): number {
-  const first = list[0]
-  if (!first) return 0
-  if (list.length === 1) return first.id
-  const nonPrimary = list.filter((d) => !d.is_primary)
-  if (nonPrimary.length === 0) return first.id
-  return nonPrimary.reduce((best, d) =>
-    d.width * d.height > best.width * best.height ? d : best,
-  ).id
-}
 
 export function ControllerToolbar({
   session,
@@ -116,10 +105,8 @@ export function ControllerToolbar({
     try {
       const list = await invoke<DisplayInfo[]>('list_displays')
       setDisplays(list)
-      // Auto-select default if nothing chosen yet
-      if (settings.selectedDisplayId === null && list.length > 0) {
-        onSettingsChange({ ...settings, selectedDisplayId: selectDefaultDisplay(list) })
-      }
+      // null = auto mode — do NOT force a specific display on load.
+      // Users can pick a specific display manually; auto is the default.
     } catch (err) {
       console.error('Failed to list displays:', err)
     }
@@ -127,14 +114,18 @@ export function ControllerToolbar({
 
   /**
    * Run a test capture to probe permission.
-   * Called when the user toggles Screenshots → On, or clicks the check button.
-   * On first macOS call this triggers the system permission dialog.
+   * Uses capture_controller_display (auto mode) or capture_display (specific id).
+   * On macOS this triggers the system permission dialog on first call.
    */
-  async function checkPermission(displayId: number) {
+  async function checkPermission() {
     setPermStatus('checking')
     setPermMsg(null)
     try {
-      await invoke('capture_display', { displayId })
+      if (settings.selectedDisplayId === null) {
+        await invoke('capture_controller_display')
+      } else {
+        await invoke('capture_display', { displayId: settings.selectedDisplayId })
+      }
       setPermStatus('granted')
       setPermMsg('Screen recording permission confirmed.')
     } catch (err) {
@@ -150,20 +141,14 @@ export function ControllerToolbar({
   async function handleScreenshotsToggle(newValue: boolean) {
     if (newValue === true) {
       // Immediately attempt a test capture to trigger (or confirm) macOS permission.
-      const displayId =
-        settings.selectedDisplayId ??
-        (displays.length > 0 ? selectDefaultDisplay(displays) : null)
-
-      if (displayId === null) {
-        // No displays loaded yet — just turn it on optimistically.
-        onSettingsChange({ ...settings, screenshotsOn: true })
-        return
-      }
-
       setPermStatus('checking')
       setPermMsg(null)
       try {
-        await invoke('capture_display', { displayId })
+        if (settings.selectedDisplayId === null) {
+          await invoke('capture_controller_display')
+        } else {
+          await invoke('capture_display', { displayId: settings.selectedDisplayId })
+        }
         setPermStatus('granted')
         setPermMsg('Screen recording permission confirmed.')
         onSettingsChange({ ...settings, screenshotsOn: true })
@@ -500,20 +485,25 @@ export function ControllerToolbar({
               </div>
             </div>
 
-            {/* Display picker — shown when screenshots is on and >1 display */}
-            {settings.screenshotsOn && displays.length > 1 && (
+            {/* Display picker — shown when screenshots is on */}
+            {settings.screenshotsOn && displays.length > 0 && (
               <div>
                 <label htmlFor="display-picker" className="text-xs text-gray-300 block mb-2">
                   Capture display
                 </label>
                 <select
                   id="display-picker"
-                  value={settings.selectedDisplayId ?? ''}
-                  onChange={(e) =>
-                    onSettingsChange({ ...settings, selectedDisplayId: Number(e.target.value) })
-                  }
+                  value={settings.selectedDisplayId ?? 'auto'}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    onSettingsChange({
+                      ...settings,
+                      selectedDisplayId: val === 'auto' ? null : Number(val),
+                    })
+                  }}
                   className="w-full bg-gray-700 border border-gray-600 rounded-lg px-2 py-1.5 text-xs text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
+                  <option value="auto">Auto (follow toolbar)</option>
                   {displays.map((d) => (
                     <option key={d.id} value={d.id}>
                       {d.width}×{d.height}
@@ -529,13 +519,7 @@ export function ControllerToolbar({
             {IS_MACOS && (
               <div className="space-y-2">
                 <button
-                  onClick={() => {
-                    const first = displays[0]
-                    const displayId =
-                      settings.selectedDisplayId ??
-                      (first !== undefined ? first.id : null)
-                    if (displayId !== null) void checkPermission(displayId)
-                  }}
+                  onClick={() => void checkPermission()}
                   disabled={permStatus === 'checking'}
                   className="w-full text-xs text-gray-300 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg px-3 py-1.5 transition-colors disabled:opacity-50"
                 >

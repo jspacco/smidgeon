@@ -126,12 +126,19 @@ function ToolbarApp() {
 
     // --- Screenshot capture (before launch so we have the bytes ready) ---
     // Failure here must never block the question from launching.
+    // null selectedDisplayId = auto mode: capture whichever display the toolbar is on.
     let capturedJpeg: string | null = null
-    if (settings.screenshotsOn && settings.selectedDisplayId !== null) {
+    if (settings.screenshotsOn) {
       try {
-        capturedJpeg = await invoke<string>('capture_display', {
-          displayId: settings.selectedDisplayId,
-        })
+        if (settings.selectedDisplayId === null) {
+          // Auto: detect from toolbar window position
+          capturedJpeg = await invoke<string>('capture_controller_display')
+        } else {
+          // Manual: specific display
+          capturedJpeg = await invoke<string>('capture_display', {
+            displayId: settings.selectedDisplayId,
+          })
+        }
       } catch (err) {
         console.error('Screenshot capture failed:', err)
         if (!screenshotWarnedRef.current) {

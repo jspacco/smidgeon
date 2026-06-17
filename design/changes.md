@@ -1,5 +1,21 @@
 # Changes
 
+## 2026-06-17 — Fix screenshot capturing desktop instead of screen content; add auto display detection
+
+**Root cause:** The `screenshots` crate's macOS backend calls `CGWindowListCreateImage` (via `CGDisplay::screenshot` with `kCGWindowListOptionOnScreenOnly`). This is a window-compositor API — it assembles only app-level windows and intentionally excludes system UI layers (menu bar, Dock) that are rendered by privileged system processes at reserved window levels. Other apps' windows (e.g. the browser showing the slides) are also excluded from this composite. This explains exactly the observed pattern: desktop wallpaper + Tauri window present, menu bar + Dock + browser window absent.
+
+The fix is `CGDisplayCreateImage` (`CGDisplay::image()` from `core-graphics 0.22`), which reads the complete hardware framebuffer — everything visible on the physical display, identical to what Command-Shift-3 captures. This API is already available as a transitive dependency via the screenshots crate; a direct `[target.'cfg(target_os = "macos")'.dependencies]` entry makes it available in our code.
+
+**Window-position-based display detection:** Added `capture_controller_display` Rust command that uses `window.current_monitor()` (Tauri v2) to find which monitor the toolbar is currently on, matches it to a `display_info` entry by comparing physical dimensions (logical × scale_factor), then calls the corrected capture. This replaces the previous "largest non-primary" default. In Settings, `selectedDisplayId: null` now means "Auto (follow toolbar)" and is the default; users can still pick a specific display from the dropdown.
+
+**Prompt:** Fix Screenshot Capture Showing Desktop Instead of Actual Screen Content — investigate root cause (CGWindowListCreateImage vs CGDisplayCreateImage), fix to use true framebuffer capture on macOS, add capture_controller_display command with window-position-based display detection as the new default.
+
+**Changes:**
+- `apps/tauri-controller/src-tauri/Cargo.toml` — add `core-graphics = "0.22"` as macOS-only direct dependency
+- `apps/tauri-controller/src-tauri/src/lib.rs` — macOS `capture_display_impl` now uses `CGDisplay::image()` (CGDisplayCreateImage); non-macOS path unchanged; add `capture_controller_display` command with Tauri `current_monitor()` → display match; update `check_screen_recording_permission` to use CGDisplayCreateImage on macOS; add `eprintln!` debug logs
+- `apps/tauri-controller/src/App.tsx` — `handleLaunch` calls `capture_controller_display` when `selectedDisplayId` is null (auto), `capture_display` when specific
+- `apps/tauri-controller/src/components/ControllerToolbar.tsx` — display picker always shown when screenshots on (not just 2+ displays), first option is "Auto (follow toolbar)" mapping to `null`; `checkPermission` and `handleScreenshotsToggle` use the matching command for current mode; remove unused `selectDefaultDisplay`
+
 ## 2026-06-16 — Implement screenshot capture for question launch (Tauri controller)
 
 **Why:** The design doc specifies screenshot capture as a research infrastructure feature: when Screenshots=On, launching a question should capture the display (presumably showing the slide) and attach it to the question record so researchers can later see what was on screen alongside vote distributions. The `screenshot_url` column and `screenshots` Supabase Storage bucket were already in place but the capture itself was never implemented — only a TODO stub existed in `handleLaunch`.
