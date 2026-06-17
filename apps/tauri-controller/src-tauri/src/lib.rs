@@ -45,6 +45,18 @@ struct DisplayInfo {
 //   which reads the complete hardware framebuffer and always captures
 //   everything visible — menu bar, Dock, all app windows, wallpaper.
 //   This is the same API used by macOS's built-in Command-Shift-3 screenshot.
+//
+// FUTURE MIGRATION NOTE:
+//   The intent was to replace this with the `scap` crate (ScreenCaptureKit
+//   on macOS, Windows.Graphics.Capture on Windows) for a single cross-platform
+//   capture path. However, scap's macOS backend (`cidre`) calls `xcodebuild`
+//   from its build.rs and requires full Xcode — not just Command Line Tools.
+//   Until the build machine has full Xcode installed, the CGDisplayCreateImage
+//   path below is the correct macOS fix, and the screenshots crate continues
+//   to handle Windows/Linux captures.
+//
+//   When Xcode is available, replace this file with the scap implementation
+//   (Cargo.toml: remove screenshots + core-graphics, add scap = "0.1.0-beta.1").
 // ---------------------------------------------------------------------------
 
 /// macOS path: use CGDisplayCreateImage — true framebuffer capture.
@@ -284,6 +296,49 @@ fn open_screen_recording_settings() -> Result<(), String> {
     }
 }
 
+/// Returns whether the current platform and OS version support screenshot capture.
+///
+/// On macOS, requires macOS 14.0+ (Sonoma). The CGDisplayCreateImage API
+/// (our current macOS capture path) works on older versions, but ScreenCaptureKit
+/// single-frame capture — the intended long-term backend — requires macOS 14+.
+/// Using 14+ as the floor future-proofs the setting for the eventual scap migration.
+///
+/// On Windows, always returns true (no equivalent version constraint for the
+/// screenshots crate's Windows capture path; Windows.Graphics.Capture, the
+/// future scap backend, requires Windows 10 v1803+ which is a universally-met
+/// baseline).
+///
+/// Frontend uses this to disable the Screenshots toggle with a clear inline
+/// message on unsupported OS versions rather than crashing or silently failing.
+#[tauri::command]
+fn supports_screenshot_capture() -> bool {
+    #[cfg(not(target_os = "macos"))]
+    return true;
+
+    #[cfg(target_os = "macos")]
+    {
+        let output = match std::process::Command::new("sw_vers")
+            .arg("-productVersion")
+            .output()
+        {
+            Ok(o) => o,
+            Err(e) => {
+                eprintln!("[smidgeon] supports_screenshot_capture: sw_vers failed: {e}");
+                return false;
+            }
+        };
+        let version = String::from_utf8_lossy(&output.stdout);
+        let major: u32 = version
+            .trim()
+            .split('.')
+            .next()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(0);
+        eprintln!("[smidgeon] supports_screenshot_capture: macOS major version={major}");
+        major >= 14
+    }
+}
+
 // ---------------------------------------------------------------------------
 // App entry point
 // ---------------------------------------------------------------------------
@@ -300,6 +355,7 @@ pub fn run() {
             capture_controller_display,
             check_screen_recording_permission,
             open_screen_recording_settings,
+            supports_screenshot_capture,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

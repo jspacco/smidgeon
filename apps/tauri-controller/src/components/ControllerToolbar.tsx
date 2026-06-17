@@ -86,6 +86,10 @@ export function ControllerToolbar({
   const [permStatus, setPermStatus] = useState<PermStatus>('idle')
   const [permMsg, setPermMsg] = useState<string | null>(null)
 
+  // Whether the current OS version supports screenshots (macOS 14+ required).
+  // Default true to avoid a flash of disabled state before the check resolves.
+  const [screenshotSupported, setScreenshotSupported] = useState<boolean>(true)
+
   // Resize the Tauri window to reveal the settings panel when open.
   // 460px gives room for display picker + permission UI.
   useEffect(() => {
@@ -93,6 +97,7 @@ export function ControllerToolbar({
     if (showSettings) {
       void win.setSize(new LogicalSize(480, 460))
       void loadDisplays()
+      void loadScreenshotSupport()
     } else {
       void win.setSize(new LogicalSize(480, 60))
       setPermStatus('idle')
@@ -109,6 +114,16 @@ export function ControllerToolbar({
       // Users can pick a specific display manually; auto is the default.
     } catch (err) {
       console.error('Failed to list displays:', err)
+    }
+  }
+
+  async function loadScreenshotSupport() {
+    try {
+      const supported = await invoke<boolean>('supports_screenshot_capture')
+      setScreenshotSupported(supported)
+    } catch {
+      // Conservatively disable if we can't determine support.
+      setScreenshotSupported(false)
     }
   }
 
@@ -458,31 +473,37 @@ export function ControllerToolbar({
             {/* Screenshots on/off */}
             <div>
               <p className="text-xs text-gray-300 mb-2">Screenshots</p>
-              <div className="flex gap-2" role="radiogroup" aria-label="Screenshot capture">
-                {([
-                  { value: true, label: 'On' },
-                  { value: false, label: 'Off' },
-                ] as const).map(({ value, label }) => (
-                  <label
-                    key={label}
-                    className={[
-                      'flex items-center justify-center px-3 h-8 rounded-lg border-2 cursor-pointer text-xs font-medium transition-colors',
-                      settings.screenshotsOn === value
-                        ? 'border-blue-500 bg-blue-600 text-white'
-                        : 'border-gray-600 bg-gray-700 text-gray-300 hover:border-blue-400',
-                    ].join(' ')}
-                  >
-                    <input
-                      type="radio"
-                      name="settings-screenshots"
-                      checked={settings.screenshotsOn === value}
-                      onChange={() => void handleScreenshotsToggle(value)}
-                      className="sr-only"
-                    />
-                    {label}
-                  </label>
-                ))}
-              </div>
+              {IS_MACOS && !screenshotSupported ? (
+                <p className="text-xs text-amber-400">
+                  Screenshots require macOS 14 or later.
+                </p>
+              ) : (
+                <div className="flex gap-2" role="radiogroup" aria-label="Screenshot capture">
+                  {([
+                    { value: true, label: 'On' },
+                    { value: false, label: 'Off' },
+                  ] as const).map(({ value, label }) => (
+                    <label
+                      key={label}
+                      className={[
+                        'flex items-center justify-center px-3 h-8 rounded-lg border-2 cursor-pointer text-xs font-medium transition-colors',
+                        settings.screenshotsOn === value
+                          ? 'border-blue-500 bg-blue-600 text-white'
+                          : 'border-gray-600 bg-gray-700 text-gray-300 hover:border-blue-400',
+                      ].join(' ')}
+                    >
+                      <input
+                        type="radio"
+                        name="settings-screenshots"
+                        checked={settings.screenshotsOn === value}
+                        onChange={() => void handleScreenshotsToggle(value)}
+                        className="sr-only"
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Display picker — shown when screenshots is on */}

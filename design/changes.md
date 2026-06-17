@@ -1,5 +1,21 @@
 # Changes
 
+## 2026-06-17 — Attempt scap migration; add macOS version gate for Screenshots setting
+
+**Why:** The `CGDisplayCreateImage` fix applied in the previous task corrects the missing menu bar/Dock problem on macOS. This task attempted to further improve the screenshot stack by migrating to the `scap` crate (ScreenCaptureKit on macOS, Windows.Graphics.Capture on Windows) for a single unified cross-platform capture path. However, scap's macOS backend (`cidre`) calls `xcodebuild` from its `build.rs` and requires the full Xcode app to be installed — Command Line Tools alone are insufficient. Since the build machine has only CLT installed, the scap dependency was reverted to the working `screenshots` + `core-graphics` stack.
+
+The macOS version gate (`supports_screenshot_capture` command) was still implemented and wired up: on macOS < 14.0 the Screenshots toggle in Settings is replaced by the message "Screenshots require macOS 14 or later." rather than crashing or silently failing. On Windows and non-macOS, the command always returns `true`.
+
+**Scap migration path:** When full Xcode is available on the build machine, replace `screenshots = "0.8"` and `core-graphics = "0.22"` in Cargo.toml with `scap = "0.1.0-beta.1"`, and replace `lib.rs` with the scap-based implementation (using `scap::has_permission()`, `scap::get_all_targets()`, `Capturer::build()` + `start_capture()` + `get_next_frame()` loop + `stop_capture()`; BGRA pixel format with B↔R swap for JPEG encoding).
+
+**Windows minimum for scap:** Windows 10 version 1803 (build 10.0.17134), checked at runtime by `GraphicsCaptureApi::is_supported()`. No code change needed — runtime check handles it.
+
+**Prompt:** Migrate Screenshot Capture from `screenshots` Crate to `scap` — replace screenshots crate with scap (ScreenCaptureKit/Windows.Graphics.Capture), handle macOS 14+ version gate, add supports_screenshot_capture command, re-verify permission flow and display matching.
+
+**Changes:**
+- `apps/tauri-controller/src-tauri/src/lib.rs` — add `supports_screenshot_capture` Rust command; document scap migration blocker (Xcode required for cidre) in inline comments; all capture logic unchanged from previous task
+- `apps/tauri-controller/src/components/ControllerToolbar.tsx` — add `screenshotSupported` state; call `supports_screenshot_capture` when settings panel opens; replace Screenshots toggle with "Screenshots require macOS 14 or later." message when `IS_MACOS && !screenshotSupported`
+
 ## 2026-06-17 — Fix screenshot capturing desktop instead of screen content; add auto display detection
 
 **Root cause:** The `screenshots` crate's macOS backend calls `CGWindowListCreateImage` (via `CGDisplay::screenshot` with `kCGWindowListOptionOnScreenOnly`). This is a window-compositor API — it assembles only app-level windows and intentionally excludes system UI layers (menu bar, Dock) that are rendered by privileged system processes at reserved window levels. Other apps' windows (e.g. the browser showing the slides) are also excluded from this composite. This explains exactly the observed pattern: desktop wallpaper + Tauri window present, menu bar + Dock + browser window absent.

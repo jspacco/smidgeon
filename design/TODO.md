@@ -25,8 +25,11 @@
 * Choose correct answer for MCQ
 * Revote button always exists, but is greyed out when not in use
 * Exit button, or at least an X in the corner
+* tooltips don't actually work
+* green status update not visible at the bottom
 * Grab and move widget upon launch
 * single / multi does not highlight default
+* screenshot recording setting not saved/remembered
 * can't see screenshot toggle in settings, either not visible or not implemented
 * Test on windows
 * **Screenshots**
