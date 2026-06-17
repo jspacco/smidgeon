@@ -13,9 +13,11 @@
 
 ## Student PWA
 * Smidgeon icon rather than the weird clipboard clip art thing
+* handle bad URLs (asdfasdf) at smidgeon.app/asdfasdf
 
 ## Faculty Dashboard
 * Show screenshots linked to questions, once we have screenshots
+* says "Knox College" on splash page
 
 ## Faculty PWA
 * Choose correct answer for MCQ
@@ -24,13 +26,14 @@
 * Should not say "knox.edu" in the title screen
 * Choose correct answer for MCQ
 * Revote button always exists, but is greyed out when not in use
-* Exit button, or at least an X in the corner
+* Exit button, or at least an X in the corner, that quits but doesn't log out
 * tooltips don't actually work
 * green status update not visible at the bottom
 * Grab and move widget upon launch
 * single / multi does not highlight default
 * screenshot recording setting not saved/remembered
-* can't see screenshot toggle in settings, either not visible or not implemented
+* names of S3 buckets on supabase are wonky; maybe OK?
+* can't see green saying we have permissions
 * Test on windows
 * **Screenshots**
    - [ ] Auto-capture on question launch when Screenshots=On
