@@ -1,7 +1,7 @@
 use tauri::Emitter;
-use screenshots::Screen;
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use std::io::Cursor;
+use scap::capturer::{get_output_frame_size as scap_frame_size, Options as ScapOptions, Resolution};
 
 // ---------------------------------------------------------------------------
 // OAuth command (existing)
@@ -31,83 +31,76 @@ struct DisplayInfo {
 }
 
 // ---------------------------------------------------------------------------
-// Core capture implementation
+// Core capture implementation — unified via scap (ScreenCaptureKit on macOS,
+// Windows.Graphics.Capture on Windows).
 //
-// ROOT CAUSE NOTE:
-//   The screenshots crate's macOS backend uses CGWindowListCreateImage via
-//   CGDisplay::screenshot(kCGWindowListOptionOnScreenOnly, ...). This is a
-//   window-compositor capture that assembles only app-level windows and
-//   intentionally omits system UI layers (menu bar, Dock) which are rendered
-//   by separate processes at privileged window levels. Other apps' windows
-//   are also excluded unless Screen Recording permission is fully active.
+// scap uses cidre as its macOS backend, which requires full Xcode (not just
+// Command Line Tools) due to xcodebuild calls in cidre's build.rs.
+// Full Xcode 26.3 is now installed, unblocking this migration.
 //
-//   The fix is to call CGDisplayCreateImage (CGDisplay::image()) instead,
-//   which reads the complete hardware framebuffer and always captures
-//   everything visible — menu bar, Dock, all app windows, wallpaper.
-//   This is the same API used by macOS's built-in Command-Shift-3 screenshot.
-//
-// FUTURE MIGRATION NOTE:
-//   The intent was to replace this with the `scap` crate (ScreenCaptureKit
-//   on macOS, Windows.Graphics.Capture on Windows) for a single cross-platform
-//   capture path. However, scap's macOS backend (`cidre`) calls `xcodebuild`
-//   from its build.rs and requires full Xcode — not just Command Line Tools.
-//   Until the build machine has full Xcode installed, the CGDisplayCreateImage
-//   path below is the correct macOS fix, and the screenshots crate continues
-//   to handle Windows/Linux captures.
-//
-//   When Xcode is available, replace this file with the scap implementation
-//   (Cargo.toml: remove screenshots + core-graphics, add scap = "0.1.0-beta.1").
+// Previously used: screenshots crate (CGWindowListCreateImage) + core-graphics
+// (CGDisplayCreateImage). CGWindowListCreateImage excluded system UI layers
+// (menu bar, Dock, other app windows). CGDisplayCreateImage was the correct
+// fix but required a macOS-only cfg split. scap unifies both platforms.
 // ---------------------------------------------------------------------------
 
-/// macOS path: use CGDisplayCreateImage — true framebuffer capture.
-#[cfg(target_os = "macos")]
+/// Build a minimal ScapOptions struct targeting a specific display.
+/// Used both for dimension queries (scap_frame_size) and actual captures.
+fn display_options(target: scap::Target) -> ScapOptions {
+    ScapOptions {
+        fps: 1,
+        target: Some(target),
+        output_type: scap::frame::FrameType::BGRAFrame,
+        output_resolution: Resolution::Captured,
+        show_cursor: false,
+        ..Default::default()
+    }
+}
+
+/// Capture the display identified by `display_id` and return a base64-encoded JPEG.
 fn capture_display_impl(display_id: u32) -> Result<String, String> {
-    use core_graphics::display::CGDisplay;
+    use scap::capturer::Capturer;
+    use scap::frame::{Frame, VideoFrame};
 
-    let cg_display = CGDisplay::new(display_id);
-    let cg_image = cg_display
-        .image()
-        .ok_or_else(|| format!("CGDisplayCreateImage failed for display {display_id} \
-            (is Screen Recording permission granted?)"))?;
+    // Find the scap Target::Display matching the requested id.
+    let targets = scap::get_all_targets();
+    let target = targets
+        .into_iter()
+        .find(|t| matches!(t, scap::Target::Display(d) if d.id == display_id))
+        .ok_or_else(|| format!("Display {display_id} not found"))?;
 
-    let width = cg_image.width();
-    let height = cg_image.height();
-    let bytes_per_row = cg_image.bytes_per_row();
-    let raw_data = cg_image.data();
-    let bytes = raw_data.bytes();
+    let options = display_options(target);
 
-    eprintln!(
-        "[smidgeon] capture_display_impl: display={display_id} \
-         raw={width}x{height} bytes_per_row={bytes_per_row} data_len={}",
-        bytes.len()
-    );
+    let mut capturer = Capturer::build(options)
+        .map_err(|e| format!("Failed to build capturer: {e}"))?;
+    capturer.start_capture();
 
-    // CGDisplayCreateImage returns BGRA8888. There may be padding at the end
-    // of each row (bytes_per_row > width * 4). Strip it and convert BGRA→RGBA.
-    let pixel_stride = width * 4;
-    let rgba_buf: Vec<u8> = if bytes_per_row == pixel_stride {
-        let mut buf = bytes.to_vec();
-        for pixel in buf.chunks_exact_mut(4) {
-            pixel.swap(0, 2); // B↔R
-        }
-        buf
-    } else {
-        let mut buf = Vec::with_capacity(pixel_stride * height);
-        for row in bytes.chunks_exact(bytes_per_row) {
-            buf.extend_from_slice(&row[..pixel_stride]);
-        }
-        for pixel in buf.chunks_exact_mut(4) {
-            pixel.swap(0, 2); // B↔R
-        }
-        buf
+    let frame = capturer
+        .get_next_frame()
+        .map_err(|e| format!("Failed to get frame: {e}"))?;
+    capturer.stop_capture();
+
+    let (width, height, data) = match frame {
+        Frame::Video(VideoFrame::BGRA(f)) => (f.width as u32, f.height as u32, f.data),
+        Frame::Video(_) => return Err("Unexpected video frame type (expected BGRA)".to_string()),
+        Frame::Audio(_) => return Err("Received audio frame instead of video".to_string()),
     };
 
-    let img_buf = image::ImageBuffer::<image::Rgba<u8>, Vec<u8>>::from_raw(
-        width as u32,
-        height as u32,
-        rgba_buf,
-    )
-    .ok_or_else(|| "Failed to create RGBA image buffer".to_string())?;
+    eprintln!(
+        "[smidgeon] capture_display_impl: display={display_id} size={width}x{height} \
+         raw_bytes={}",
+        data.len()
+    );
+
+    // scap BGRA frame: byte order per pixel is B G R A.
+    // image crate's Rgba<u8> expects R G B A. Swap B↔R in place.
+    let mut rgba = data;
+    for pixel in rgba.chunks_exact_mut(4) {
+        pixel.swap(0, 2); // B↔R
+    }
+
+    let img_buf = image::ImageBuffer::<image::Rgba<u8>, Vec<u8>>::from_raw(width, height, rgba)
+        .ok_or_else(|| "Failed to create RGBA image buffer".to_string())?;
 
     let dynamic_img = image::DynamicImage::ImageRgba8(img_buf);
     let mut jpeg_bytes = Vec::<u8>::new();
@@ -123,55 +116,46 @@ fn capture_display_impl(display_id: u32) -> Result<String, String> {
     Ok(STANDARD.encode(&jpeg_bytes))
 }
 
-/// Non-macOS path: use the screenshots crate (CGWindowListCreateImage is fine
-/// on Windows/Linux where there are no system-layer exclusions).
-#[cfg(not(target_os = "macos"))]
-fn capture_display_impl(display_id: u32) -> Result<String, String> {
-    let screens = Screen::all().map_err(|e| e.to_string())?;
-    let screen = screens
-        .iter()
-        .find(|s| s.display_info.id == display_id)
-        .ok_or_else(|| format!("Display {display_id} not found"))?;
-
-    let captured = screen.capture().map_err(|e| e.to_string())?;
-
-    let width = captured.width();
-    let height = captured.height();
-    let raw_pixels: Vec<u8> = captured.into_raw();
-
-    let img_buf =
-        image::ImageBuffer::<image::Rgba<u8>, Vec<u8>>::from_raw(width, height, raw_pixels)
-            .ok_or_else(|| "Failed to create image buffer from raw pixels".to_string())?;
-
-    let dynamic_img = image::DynamicImage::ImageRgba8(img_buf);
-    let mut jpeg_bytes = Vec::<u8>::new();
-    dynamic_img
-        .write_to(&mut Cursor::new(&mut jpeg_bytes), image::ImageFormat::Jpeg)
-        .map_err(|e| e.to_string())?;
-
-    Ok(STANDARD.encode(&jpeg_bytes))
-}
-
 // ---------------------------------------------------------------------------
 // Screenshot commands
 // ---------------------------------------------------------------------------
 
 /// Return metadata for all connected displays.
+///
+/// Dimensions come from scap::capturer::get_output_frame_size (a standalone
+/// function that computes physical pixel dimensions from the display target
+/// without requiring screen recording permission or starting a capture).
+///
+/// x, y are not exposed by scap and default to 0. scale_factor defaults to
+/// 1.0 — the width/height returned are already physical pixels (logical ×
+/// scale), so the frontend display picker shows correct native resolution.
 #[tauri::command]
 fn list_displays() -> Result<Vec<DisplayInfo>, String> {
-    let screens = Screen::all().map_err(|e| e.to_string())?;
-    Ok(screens
-        .iter()
-        .map(|s| DisplayInfo {
-            id: s.display_info.id,
-            x: s.display_info.x,
-            y: s.display_info.y,
-            width: s.display_info.width,
-            height: s.display_info.height,
-            scale_factor: s.display_info.scale_factor,
-            is_primary: s.display_info.is_primary,
-        })
-        .collect())
+    let main_display = scap::get_main_display();
+    let targets = scap::get_all_targets();
+
+    let mut displays = Vec::new();
+    for target in &targets {
+        if let scap::Target::Display(d) = target {
+            let opts = ScapOptions {
+                fps: 1,
+                target: Some(target.clone()),
+                output_resolution: Resolution::Captured,
+                ..Default::default()
+            };
+            let [w, h] = scap_frame_size(&opts);
+            displays.push(DisplayInfo {
+                id: d.id,
+                x: 0,
+                y: 0,
+                width: w,
+                height: h,
+                scale_factor: 1.0,
+                is_primary: d.id == main_display.id,
+            });
+        }
+    }
+    Ok(displays)
 }
 
 /// Capture a specific display by id and return a base64-encoded JPEG.
@@ -184,55 +168,70 @@ fn capture_display(display_id: u32) -> Result<String, String> {
 /// Capture the display the controller window is currently positioned on.
 /// This is the default capture path (auto mode in Settings).
 ///
-/// Uses Tauri's current_monitor() to find the window's monitor, then matches
-/// it to a display_info entry by comparing physical dimensions (physical =
-/// logical × scale_factor). Falls back to the first available display.
+/// Uses Tauri's current_monitor() to find the window's physical monitor
+/// dimensions, then matches to a scap display target by comparing those
+/// dimensions against scap_frame_size (physical pixels). Falls back to
+/// the primary display if no match is found.
 #[tauri::command]
 async fn capture_controller_display(app: tauri::AppHandle) -> Result<String, String> {
     use tauri::Manager;
 
-    let screens = Screen::all().map_err(|e| e.to_string())?;
+    let targets = scap::get_all_targets();
 
     let display_id: u32 = {
         let window = app
             .get_webview_window("main")
             .ok_or_else(|| "Main window not found".to_string())?;
 
-        // current_monitor() returns the monitor the window centre falls on.
         let monitor_opt = window.current_monitor().map_err(|e| e.to_string())?;
 
         match monitor_opt {
             None => {
-                eprintln!("[smidgeon] capture_controller_display: no current monitor, using first display");
-                screens.first().map(|s| s.display_info.id).unwrap_or(0)
+                eprintln!(
+                    "[smidgeon] capture_controller_display: no current monitor, using primary"
+                );
+                scap::get_main_display().id
             }
             Some(monitor) => {
                 let mon_w = monitor.size().width;
                 let mon_h = monitor.size().height;
                 eprintln!(
-                    "[smidgeon] capture_controller_display: current monitor physical size={mon_w}x{mon_h}"
+                    "[smidgeon] capture_controller_display: current monitor physical={mon_w}x{mon_h}"
                 );
 
-                // Match by physical size. display_info widths are in logical points;
-                // physical = logical × scale_factor.
-                screens
-                    .iter()
-                    .find(|s| {
-                        let info = &s.display_info;
-                        let sf = info.scale_factor as f64;
-                        let phys_w = (info.width as f64 * sf).round() as u32;
-                        let phys_h = (info.height as f64 * sf).round() as u32;
-                        phys_w == mon_w && phys_h == mon_h
-                    })
-                    .or_else(|| screens.first())
-                    .map(|s| {
+                // Match scap display by physical dimensions.
+                // scap_frame_size with Resolution::Captured returns physical pixels
+                // (logical × scale_factor), matching Tauri's monitor.size() values.
+                let matched = targets.iter().find(|t| {
+                    if let scap::Target::Display(_) = t {
+                        let opts = ScapOptions {
+                            fps: 1,
+                            target: Some((*t).clone()),
+                            output_resolution: Resolution::Captured,
+                            ..Default::default()
+                        };
+                        let [w, h] = scap_frame_size(&opts);
+                        w == mon_w && h == mon_h
+                    } else {
+                        false
+                    }
+                });
+
+                match matched {
+                    Some(scap::Target::Display(d)) => {
                         eprintln!(
                             "[smidgeon] capture_controller_display: matched display id={}",
-                            s.display_info.id
+                            d.id
                         );
-                        s.display_info.id
-                    })
-                    .unwrap_or(0)
+                        d.id
+                    }
+                    _ => {
+                        eprintln!(
+                            "[smidgeon] capture_controller_display: no match, using primary"
+                        );
+                        scap::get_main_display().id
+                    }
+                }
             }
         }
     };
@@ -240,39 +239,23 @@ async fn capture_controller_display(app: tauri::AppHandle) -> Result<String, Str
     capture_display_impl(display_id)
 }
 
-/// Probe screen recording permission by attempting a real capture.
+/// Check (and request) screen recording permission.
 ///
-/// On macOS uses CGDisplayCreateImage (same path as the real capture).
-/// The first call triggers the system permission dialog if not yet shown.
-/// Returns "granted", "denied", or "not_determined".
-/// Always returns "granted" on non-macOS platforms.
+/// On macOS: calls scap::has_permission(). If not already granted, calls
+/// scap::request_permission() which triggers the OS permission dialog on
+/// first call. Returns "granted" or "denied".
+/// On other platforms: always returns "granted" (scap::has_permission()
+/// returns true unconditionally on Windows).
 #[tauri::command]
 fn check_screen_recording_permission() -> String {
-    #[cfg(not(target_os = "macos"))]
-    return "granted".to_string();
-
-    #[cfg(target_os = "macos")]
-    {
-        use core_graphics::display::CGDisplay;
-        let screens = match Screen::all() {
-            Err(e) => {
-                eprintln!("check_screen_recording_permission: Screen::all() failed: {e}");
-                return "denied".to_string();
-            }
-            Ok(s) => s,
-        };
-        let first = match screens.first() {
-            None => return "not_determined".to_string(),
-            Some(s) => s,
-        };
-        let cg_display = CGDisplay::new(first.display_info.id);
-        match cg_display.image() {
-            Some(_) => "granted".to_string(),
-            None => {
-                eprintln!("check_screen_recording_permission: CGDisplayCreateImage returned None");
-                "denied".to_string()
-            }
-        }
+    if scap::has_permission() {
+        return "granted".to_string();
+    }
+    // Trigger the OS permission dialog; returns whether permission was granted.
+    if scap::request_permission() {
+        "granted".to_string()
+    } else {
+        "denied".to_string()
     }
 }
 
@@ -298,18 +281,14 @@ fn open_screen_recording_settings() -> Result<(), String> {
 
 /// Returns whether the current platform and OS version support screenshot capture.
 ///
-/// On macOS, requires macOS 14.0+ (Sonoma). The CGDisplayCreateImage API
-/// (our current macOS capture path) works on older versions, but ScreenCaptureKit
-/// single-frame capture — the intended long-term backend — requires macOS 14+.
-/// Using 14+ as the floor future-proofs the setting for the eventual scap migration.
+/// On macOS, requires macOS 14.0+ (Sonoma). scap's ScreenCaptureKit backend
+/// requires macOS 14+ for the single-frame capture path used here.
 ///
-/// On Windows, always returns true (no equivalent version constraint for the
-/// screenshots crate's Windows capture path; Windows.Graphics.Capture, the
-/// future scap backend, requires Windows 10 v1803+ which is a universally-met
-/// baseline).
+/// On Windows, always returns true — Windows.Graphics.Capture (scap's Windows
+/// backend) requires Windows 10 v1803+ which is a universally-met baseline.
 ///
-/// Frontend uses this to disable the Screenshots toggle with a clear inline
-/// message on unsupported OS versions rather than crashing or silently failing.
+/// Frontend uses this to show an inline message instead of the Screenshots
+/// toggle on unsupported OS versions.
 #[tauri::command]
 fn supports_screenshot_capture() -> bool {
     #[cfg(not(target_os = "macos"))]

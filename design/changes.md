@@ -1,5 +1,17 @@
 # Changes
 
+## 2026-06-17 — Complete scap migration for screenshot capture
+
+**Prompt:** finish the scap migration and get scap working for screen capture
+
+**Changes:**
+- `apps/tauri-controller/src-tauri/Cargo.toml` — remove `screenshots 0.8` and macOS-only `core-graphics 0.22`; add `scap 0.1.0-beta.1`
+- `apps/tauri-controller/src-tauri/src/lib.rs` — replace all capture logic with unified scap implementation: `capture_display_impl` uses `scap::capturer::Capturer` with `FrameType::BGRAFrame` + `Resolution::Captured`; `list_displays` uses `scap::capturer::get_output_frame_size` (standalone, no permission required) to get physical pixel dimensions per display; `capture_controller_display` matches Tauri's `current_monitor().size()` against `scap_frame_size` to identify the correct display; `check_screen_recording_permission` uses `scap::has_permission()` / `scap::request_permission()`; all macOS-only `#[cfg]` splits for capture removed — code is now platform-unified. The `supports_screenshot_capture` macOS version gate and `open_screen_recording_settings` are unchanged.
+
+**Why scap works now:** Full Xcode 26.3 is installed (`/Applications/Xcode.app`). The previous migration attempt failed because scap's `cidre` dependency calls `xcodebuild` in its `build.rs` and requires the full Xcode app — Command Line Tools alone were insufficient. With Xcode present, `cidre` builds successfully.
+
+**Implementation note:** `scap::get_target_dimensions` is defined in scap's `targets` module but not re-exported from `scap::lib.rs`. Instead, `scap::capturer::get_output_frame_size(&Options)` (a standalone function re-exported from the engine module) is used to get display dimensions without starting a capture or requiring permission. It returns physical pixels (`logical × scale_factor`), matching Tauri's `monitor.size()` values for display auto-detection.
+
 ## 2026-06-17 — Attempt scap migration; add macOS version gate for Screenshots setting
 
 **Why:** The `CGDisplayCreateImage` fix applied in the previous task corrects the missing menu bar/Dock problem on macOS. This task attempted to further improve the screenshot stack by migrating to the `scap` crate (ScreenCaptureKit on macOS, Windows.Graphics.Capture on Windows) for a single unified cross-platform capture path. However, scap's macOS backend (`cidre`) calls `xcodebuild` from its `build.rs` and requires the full Xcode app to be installed — Command Line Tools alone are insufficient. Since the build machine has only CLT installed, the scap dependency was reverted to the working `screenshots` + `core-graphics` stack.
