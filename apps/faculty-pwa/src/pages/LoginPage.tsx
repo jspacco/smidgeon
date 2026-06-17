@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { Button } from '@crs/ui'
 import logo from '../assets/logo.png'
@@ -8,7 +9,10 @@ import logo from '../assets/logo.png'
 const ALLOWED_DOMAIN = import.meta.env.VITE_ALLOWED_DOMAIN as string | undefined
 
 export default function LoginPage() {
-  const [error, setError] = useState<string | null>(null)
+  const location = useLocation()
+  const [error, setError] = useState<string | null>(
+    (location.state as { error?: string } | null)?.error ?? null
+  )
   const [loading, setLoading] = useState(false)
 
   // TODO: Microsoft signin

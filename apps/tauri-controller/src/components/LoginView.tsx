@@ -5,12 +5,18 @@ import { supabase } from '../lib/supabase'
 
 const ALLOWED_DOMAIN = import.meta.env.VITE_ALLOWED_DOMAIN as string | undefined
 
-export function LoginView() {
-  const [error, setError] = useState<string | null>(null)
+interface LoginViewProps {
+  initialError?: string | null
+  onClearError?: () => void
+}
+
+export function LoginView({ initialError, onClearError }: LoginViewProps) {
+  const [error, setError] = useState<string | null>(initialError ?? null)
   const [loading, setLoading] = useState(false)
 
   async function handleGoogleSignIn() {
     setError(null)
+    onClearError?.()
     setLoading(true)
 
     let port: number

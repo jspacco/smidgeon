@@ -32,6 +32,7 @@ function ToolbarApp() {
     screenshotsOn: false,
   })
   const [selectedType, setSelectedType] = useState<QuestionType>('MCQ_SINGLE')
+  const [authError, setAuthError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [showRevoteButton, setShowRevoteButton] = useState(false)
   const [resultsWindowOpen, setResultsWindowOpen] = useState(false)
@@ -55,7 +56,10 @@ function ToolbarApp() {
       const url = new URL(event.payload)
       const code = url.searchParams.get('code')
       if (code) {
-        await supabase.auth.exchangeCodeForSession(code)
+        const { error } = await supabase.auth.exchangeCodeForSession(code)
+        if (error) {
+          setAuthError(error.message)
+        }
       }
     })
 
@@ -243,7 +247,7 @@ function ToolbarApp() {
   }
 
   if (!user) {
-    return <LoginView />
+    return <LoginView initialError={authError} onClearError={() => setAuthError(null)} />
   }
 
   if (!activeSession || !selectedCourse) {

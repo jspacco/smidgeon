@@ -1,5 +1,19 @@
 # TODO
 
+## Manual setup steps (must do after migrations)
+
+* **Enable Before User Created auth hook** (migration 010 added the function, but it must be
+  activated manually in the Supabase dashboard):
+  - Go to: Authentication > Hooks > Before User Created
+  - Select the `hook_restrict_signup_to_whitelist` Postgres function
+  - Save. Until this is done, the whitelist has no effect and all Google accounts can sign up.
+* **Verify seed email** — migration 010 seeds `jspacco@knox.edu`. Confirm this is the correct
+  Knox address, or update it via the dashboard SQL editor:
+  ```sql
+  insert into public.faculty_whitelist (email, note, added_by)
+  values ('correct@knox.edu', 'Project owner', 'seed');
+  ```
+
 ## Shared
 * Microsoft SSO
 * Not redeploying when icons change
