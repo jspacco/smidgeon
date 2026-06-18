@@ -153,6 +153,9 @@ CREATE UNIQUE INDEX one_active_session_per_course
 -- 3. ROLE GRANTS
 -- Required after any DROP SCHEMA public CASCADE wipes default grants.
 -- ============================================================
+GRANT USAGE ON SCHEMA public TO authenticated;
+GRANT USAGE ON SCHEMA public TO anon;
+GRANT USAGE ON SCHEMA public TO service_role;
 
 GRANT ALL ON ALL TABLES    IN SCHEMA public TO authenticated;
 GRANT ALL ON ALL TABLES    IN SCHEMA public TO anon;
