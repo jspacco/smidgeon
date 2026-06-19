@@ -8,6 +8,9 @@ export interface User {
   name: string
   theme: string
   accent: string
+  default_option_count: number
+  default_multi_answer: boolean
+  default_screenshots_on: boolean
   created_at: string
 }
 
@@ -18,6 +21,7 @@ export interface Course {
   join_code: string
   default_option_count: number
   default_multi_answer: boolean
+  default_screenshots_on: boolean
   created_at: string
   institution_id: string | null
   academic_year_term_id: string | null

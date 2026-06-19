@@ -114,9 +114,36 @@ function ToolbarApp() {
         ...s,
         optionCount: selectedCourse.default_option_count,
         multiAnswer: selectedCourse.default_multi_answer,
+        screenshotsOn: selectedCourse.default_screenshots_on,
       }))
     }
   }, [selectedCourse?.id])
+
+  async function handleSaveToCourseDefaults(
+    optionCount: number,
+    multiAnswer: boolean,
+    screenshotsOn: boolean,
+  ) {
+    if (!selectedCourse) return
+    try {
+      const { error } = await supabase
+        .from('courses')
+        .update({
+          default_option_count: optionCount,
+          default_multi_answer: multiAnswer,
+          default_screenshots_on: screenshotsOn,
+        })
+        .eq('id', selectedCourse.id)
+      if (error) throw error
+      setSelectedCourse((c) =>
+        c
+          ? { ...c, default_option_count: optionCount, default_multi_answer: multiAnswer, default_screenshots_on: screenshotsOn }
+          : c,
+      )
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to save course defaults')
+    }
+  }
 
   // Revote button visibility: show when closed, hide when new question active
   useEffect(() => {
@@ -355,6 +382,7 @@ function ToolbarApp() {
         onTypeChange={setSelectedType}
         settings={settings}
         onSettingsChange={setSettings}
+        onSaveToCourseDefaults={handleSaveToCourseDefaults}
         onLaunch={handleLaunch}
         onStop={handleStop}
         onRevote={handleRevote}
