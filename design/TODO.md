@@ -23,6 +23,16 @@
 * Choose correct answer for MCQ
 
 ## Tauri Controller
+
+### Log file locations (tauri-plugin-log, bundle id: edu.knox.crs.controller)
+If a faculty member experiences a crash or screenshot failure, the log file is at:
+- **macOS**: `~/Library/Logs/edu.knox.crs.controller/`
+- **Windows**: `%LOCALAPPDATA%\edu.knox.crs.controller\logs\`
+- **Linux**: `~/.local/share/edu.knox.crs.controller/logs/`
+
+Up to 5 rotated log files are kept; each file is capped at 5 MB.
+To collect logs: ask faculty to zip that folder and email it.
+
 * Should not say "knox.edu" in the title screen
 * Choose correct answer for MCQ
 * Revote button always exists, but is greyed out when not in use

@@ -1,5 +1,16 @@
 # Changes
 
+## 2026-06-19 — Replace ad-hoc debug_log with tauri-plugin-log
+
+**Why:** The hand-rolled `debug_log()` function added in the previous session hardcoded `/tmp/smidgeon-debug.log`. `/tmp` does not exist on Windows — the `if let Ok(...)` guard around `OpenOptions::open()` silently swallowed the failure, so the entire logging mechanism would have been a silent no-op on Windows. `tauri-plugin-log` solves this for free: it writes to the correct OS-specific app-data directory on every platform, supports log rotation (so a faculty pilot doesn't accumulate unbounded disk usage), and is the officially supported Tauri logging path. Log files land at `~/Library/Logs/edu.knox.crs.controller/` on macOS and `%LOCALAPPDATA%\edu.knox.crs.controller\logs\` on Windows — a well-known location to direct faculty to when collecting crash reports.
+
+**Prompt:** Replace Ad-Hoc File Logging with tauri-plugin-log. Add tauri-plugin-log and log crates to Cargo.toml. Register plugin in Tauri builder with KeepSome(5) rotation, 5 MB max file size, targeting both Stdout and LogDir. Replace every debug_log() call site with log::info!/warn!/error! macros. Remove the debug_log() function entirely. Document log file paths in design/TODO.md. Dev builds use LevelFilter::Debug, release builds use LevelFilter::Info.
+
+**Changes:**
+- `apps/tauri-controller/src-tauri/Cargo.toml` — add `tauri-plugin-log = "2"` and `log = "^0.4"` dependencies
+- `apps/tauri-controller/src-tauri/src/lib.rs` — remove `debug_log()` function and all `/tmp/smidgeon-debug.log` writes; replace all call sites with `log::info!` / `log::warn!` / `log::error!`; register `tauri_plugin_log::Builder` in `run()` with KeepSome(5) rotation, 5 MB cap, Stdout + LogDir targets, Debug level in dev / Info in release
+- `design/TODO.md` — add log file location note under Tauri Controller section with paths for macOS, Windows, Linux
+
 ## 2026-06-18 — Fix screenshot permission UI dead-end; add file-based debug logging
 
 **Why:** Two problems needed fixing together. (1) The Screenshots "On" toggle was a dead end when permission was denied: `handleScreenshotsToggle` was calling `capture_controller_display` to test permission, but that Rust command has `if !scap::has_permission() { return Err(...) }` — it never calls `scap::request_permission()`, so the OS permission dialog was never triggered and the toggle just silently failed. The "Open Privacy Settings" button rendered correctly in the denied state but since the errors from `void invoke(...)` are silently swallowed, if the Rust command failed for any reason it was invisible. (2) All debug output used `eprintln!`, which is invisible when testing the built `.app` bundle (no terminal attached); `cargo tauri dev` is not a real bundle and macOS doesn't reliably show TCC prompts to non-bundled binaries, so the built app is the only real test environment.
