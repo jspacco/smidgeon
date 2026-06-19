@@ -12,6 +12,12 @@ import { acquireWakeLock, releaseWakeLock } from '../lib/wakeLock'
 import { useCurrentQuestion } from '../hooks/useCurrentQuestion'
 import { useLiveResponses } from '../hooks/useLiveResponses'
 import { Button, BarChart, CountUpTimer, ReconnectingIndicator, QRCode } from '@crs/ui'
+
+// Base URL of the student PWA. Self-hosters set VITE_STUDENT_APP_URL in their
+// deployment environment; Spacco's own deployment uses the default.
+const STUDENT_APP_URL =
+  (import.meta.env.VITE_STUDENT_APP_URL as string | undefined)?.replace(/\/$/, '') ??
+  'https://smidgeon.app'
 import { QuestionTypeSelector } from '../components/QuestionTypeSelector'
 import type { Course, CRSSession, CRSQuestion, QuestionType } from '@crs/types'
 
@@ -315,7 +321,7 @@ export default function SessionPage() {
             Scan to join session
           </p>
           <div onClick={(e) => e.stopPropagation()}>
-            <QRCode value={session.qr_token} size={280} />
+            <QRCode value={`${STUDENT_APP_URL}/join?token=${session.qr_token}`} size={280} />
           </div>
           <p className="text-5xl font-mono font-bold tracking-widest text-gray-900">
             {session.session_code}

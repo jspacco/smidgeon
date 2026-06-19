@@ -1,5 +1,23 @@
 # Changes
 
+## 2026-06-19 — QR codes encode full join URL for stock camera app compatibility
+
+**Why:** The qr_token previously encoded in QR codes was a bare UUID. A bare UUID is not actionable by a stock camera app — the phone's Camera shows nothing useful. Only students who already had the student-pwa open and used the in-app QRScanner could benefit. A brand-new student scanning for the first time (the overwhelmingly common first-time experience) had no path in. The fix encodes a full URL — `https://smidgeon.app/join?token={uuid}` — so any phone's camera recognises it as a link, opens it in the browser, and lands the student directly on the join flow. The token remains a UUID in the database; only what gets encoded visually in the QR image changes. The domain is configurable via VITE_STUDENT_APP_URL for self-hosters.
+
+**Prompt:** QR Codes Must Work With Stock Camera Apps, Not Just the In-App Scanner. Step 1: add /join route to student-pwa that reads token query param, handles unauthenticated users by preserving token through OAuth round-trip, and validates on return. Step 2: add VITE_STUDENT_APP_URL env var (default https://smidgeon.app) to faculty-pwa and tauri-controller; update all three QR-generating surfaces to encode the full URL. Step 3: update in-app QRScanner's handleScan to parse token from URL-format QR content, with backward-compatible fallback for bare UUIDs. Step 4: confirm 6-digit session code path untouched. Step 5: verify both faculty-side QR displays updated.
+
+**Changes:**
+- `apps/student-pwa/src/lib/auth.ts` — add optional `returnTo` param to `signInWithGoogle`; embeds post-auth destination in the Supabase `redirectTo` callback URL so the token survives the OAuth round-trip
+- `apps/student-pwa/src/pages/AuthCallback.tsx` — read `returnTo` query param after OAuth completes; validate it is a relative path (open-redirect guard) and navigate there instead of always going to `/`
+- `apps/student-pwa/src/pages/JoinPage.tsx` — new page: reads `?token=` param, redirects unauthenticated users through OAuth with token preserved, validates token and navigates to session once authenticated
+- `apps/student-pwa/src/App.tsx` — add `/join` route pointing to `JoinPage`
+- `apps/student-pwa/src/pages/LandingPage.tsx` — update `handleScan` to parse token from URL-format QR content (`new URL(raw).searchParams.get('token')`), with bare-UUID fallback for backward compatibility
+- `apps/faculty-pwa/src/pages/SessionPage.tsx` — add `STUDENT_APP_URL` constant; fullscreen QR now encodes `${STUDENT_APP_URL}/join?token=${session.qr_token}`
+- `apps/faculty-pwa/.env.local` — document `VITE_STUDENT_APP_URL` (commented out)
+- `apps/tauri-controller/src/windows/QRWindow.tsx` — add `STUDENT_APP_URL` constant; large QR popup encodes full URL
+- `apps/tauri-controller/src/components/ControllerToolbar.tsx` — add `STUDENT_APP_URL` constant; mini inline QR encodes full URL
+- `apps/tauri-controller/.env.local` — document `VITE_STUDENT_APP_URL` (commented out)
+
 ## 2026-06-19 — Definitive restart-required messaging and quit-and-reopen button for screen recording permission
 
 **Why:** macOS screen recording permission grants never apply to the already-running process — a restart is always required, without exception. This is a deliberate OS security design, not an intermittent quirk. Apple's own system dialog uses hedged language ("may require restart") but for Screen Recording specifically the restart is unconditional. Previously, after a user granted permission in System Settings and returned to Smidgeon, the app re-checked `has_permission()`, still saw denied (from this process's perspective), and showed the same generic dead-end — no indication that the fix was simply to restart. The new UI shows both recovery actions together at all times: "Open Privacy Settings" (for users who haven't granted yet) and "Quit and Reopen Smidgeon" (for users who already granted and just need to restart). Both are always visible so a returning user doesn't have to click through "Open Privacy Settings" again to reach "Quit and Reopen."

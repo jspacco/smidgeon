@@ -4,11 +4,17 @@ import { supabase } from './supabase'
 // Leave unset or empty in .env.local to allow any Google account.
 const ALLOWED_DOMAIN = import.meta.env.VITE_ALLOWED_DOMAIN as string | undefined
 
-export async function signInWithGoogle(): Promise<void> {
+export async function signInWithGoogle(opts?: { returnTo?: string }): Promise<void> {
+  // Build the callback URL, embedding an optional post-auth destination so
+  // the /join route can survive the OAuth redirect round-trip.
+  const callbackUrl = new URL(`${window.location.origin}/auth/callback`)
+  if (opts?.returnTo) {
+    callbackUrl.searchParams.set('returnTo', opts.returnTo)
+  }
   const { error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${window.location.origin}/auth/callback`,
+      redirectTo: callbackUrl.toString(),
       queryParams: ALLOWED_DOMAIN ? { hd: ALLOWED_DOMAIN } : undefined,
     },
   })

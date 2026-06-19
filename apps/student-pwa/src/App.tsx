@@ -5,6 +5,7 @@ import LoginPage from './pages/LoginPage'
 import LandingPage from './pages/LandingPage'
 import SessionPage from './pages/SessionPage'
 import AuthCallback from './pages/AuthCallback'
+import JoinPage from './pages/JoinPage'
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useSession()
@@ -44,6 +45,8 @@ export default function App() {
       <Routes>
         <Route path="/" element={<RootRedirect />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
+        {/* /join?token=<qr_token> — entry point for stock camera app scans */}
+        <Route path="/join" element={<JoinPage />} />
         <Route
           path="/courses/:courseId/session/:sessionId"
           element={

@@ -56,6 +56,12 @@ const IS_MACOS =
   typeof navigator !== 'undefined' &&
   (navigator.platform.includes('Mac') || navigator.userAgent.includes('Macintosh'))
 
+// Base URL of the student PWA. Self-hosters set VITE_STUDENT_APP_URL in their
+// deployment environment; Spacco's own deployment uses the default.
+const STUDENT_APP_URL =
+  (import.meta.env.VITE_STUDENT_APP_URL as string | undefined)?.replace(/\/$/, '') ??
+  'https://smidgeon.app'
+
 
 export function ControllerToolbar({
   session,
@@ -236,7 +242,7 @@ export function ControllerToolbar({
             data-tooltip="Show QR code"
           >
             <QRCode
-              value={session.qr_token}
+              value={`${STUDENT_APP_URL}/join?token=${session.qr_token}`}
               size={40}
               colorDark="#06B6D4"
               colorLight="#0D1117"

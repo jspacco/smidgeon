@@ -4,6 +4,12 @@ import { supabase } from '../lib/supabase'
 import { QRCode } from '@crs/ui'
 import type { CRSSession } from '@crs/types'
 
+// Base URL of the student PWA. Self-hosters set VITE_STUDENT_APP_URL in their
+// deployment environment; Spacco's own deployment uses the default.
+const STUDENT_APP_URL =
+  (import.meta.env.VITE_STUDENT_APP_URL as string | undefined)?.replace(/\/$/, '') ??
+  'https://smidgeon.app'
+
 export function QRWindow() {
   const [session, setSession] = useState<CRSSession | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -61,7 +67,7 @@ export function QRWindow() {
   return (
     <main className="flex flex-col items-center justify-center min-h-screen bg-white p-8 gap-6">
       <h1 className="text-2xl font-bold text-gray-900">Scan to join</h1>
-      <QRCode value={session.qr_token} size={420} />
+      <QRCode value={`${STUDENT_APP_URL}/join?token=${session.qr_token}`} size={420} />
       <div className="flex flex-col items-center gap-1">
         <p className="text-sm text-gray-500">or enter session code</p>
         <p className="text-6xl font-mono font-bold tracking-widest text-gray-900">
