@@ -127,6 +127,20 @@ export function ControllerToolbar({
     }
   }
 
+  // Message shown whenever screen recording permission is denied.
+  // Unconditionally states that a restart is required after granting permission —
+  // macOS permission grants never apply to the already-running process for
+  // Screen Recording. This is true without exception (despite Apple's system
+  // dialog hedging with "may require"). Both recovery buttons are always shown
+  // together so a user who already granted permission in a previous attempt can
+  // immediately choose "Quit and Reopen" without clicking "Open Privacy Settings" again.
+  const PERMISSION_DENIED_MSG =
+    'Screen recording permission is required for screenshots. Open System Settings ' +
+    'to grant it if you haven\u2019t yet. After granting permission, you must quit and ' +
+    'reopen Smidgeon \u2014 on macOS, permission grants never apply to the already-running ' +
+    'process, even though System Settings may say this \u201cmay\u201d be required. For ' +
+    'Screen Recording specifically, it always is.'
+
   /**
    * Check (and request) screen recording permission via the Rust command.
    * On macOS, check_screen_recording_permission calls scap::request_permission()
@@ -142,14 +156,11 @@ export function ControllerToolbar({
         setPermMsg('Screen recording permission confirmed.')
       } else {
         setPermStatus('denied')
-        setPermMsg(
-          'Screen recording permission denied. macOS only prompts once — ' +
-            'enable it manually in Privacy Settings.',
-        )
+        setPermMsg(PERMISSION_DENIED_MSG)
       }
     } catch (err) {
       setPermStatus('denied')
-      setPermMsg('Permission check failed. Enable screen recording in Privacy Settings.')
+      setPermMsg(PERMISSION_DENIED_MSG)
       console.error('Screen recording permission check failed:', err)
     }
   }
@@ -171,15 +182,12 @@ export function ControllerToolbar({
           onSettingsChange({ ...settings, screenshotsOn: true })
         } else {
           setPermStatus('denied')
-          setPermMsg(
-            'Screen recording permission denied. macOS only prompts once — ' +
-              'enable it manually in Privacy Settings.',
-          )
+          setPermMsg(PERMISSION_DENIED_MSG)
           // Do NOT flip screenshotsOn to true — leave it off until permission is confirmed.
         }
       } catch (err) {
         setPermStatus('denied')
-        setPermMsg('Permission check failed. Enable screen recording in Privacy Settings.')
+        setPermMsg(PERMISSION_DENIED_MSG)
         console.error('Screen recording permission check failed:', err)
       }
     } else {
@@ -558,7 +566,7 @@ export function ControllerToolbar({
                 {permMsg && (
                   <div
                     className={[
-                      'text-xs rounded-lg px-3 py-2 space-y-1',
+                      'text-xs rounded-lg px-3 py-2 space-y-2',
                       permStatus === 'granted'
                         ? 'bg-green-900 text-green-200'
                         : 'bg-amber-900 text-amber-200',
@@ -567,12 +575,22 @@ export function ControllerToolbar({
                   >
                     <p>{permMsg}</p>
                     {permStatus === 'denied' && (
-                      <button
-                        onClick={() => void invoke('open_screen_recording_settings')}
-                        className="underline text-amber-300 hover:text-white"
-                      >
-                        Open Privacy Settings
-                      </button>
+                      <div className="flex flex-col gap-1">
+                        <button
+                          type="button"
+                          onClick={() => void invoke('open_screen_recording_settings')}
+                          className="text-left underline text-amber-300 hover:text-white"
+                        >
+                          Open Privacy Settings
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void invoke('relaunch_app')}
+                          className="text-left underline text-amber-300 hover:text-white"
+                        >
+                          Quit and Reopen Smidgeon
+                        </button>
+                      </div>
                     )}
                   </div>
                 )}

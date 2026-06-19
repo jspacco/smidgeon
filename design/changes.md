@@ -1,5 +1,15 @@
 # Changes
 
+## 2026-06-19 — Definitive restart-required messaging and quit-and-reopen button for screen recording permission
+
+**Why:** macOS screen recording permission grants never apply to the already-running process — a restart is always required, without exception. This is a deliberate OS security design, not an intermittent quirk. Apple's own system dialog uses hedged language ("may require restart") but for Screen Recording specifically the restart is unconditional. Previously, after a user granted permission in System Settings and returned to Smidgeon, the app re-checked `has_permission()`, still saw denied (from this process's perspective), and showed the same generic dead-end — no indication that the fix was simply to restart. The new UI shows both recovery actions together at all times: "Open Privacy Settings" (for users who haven't granted yet) and "Quit and Reopen Smidgeon" (for users who already granted and just need to restart). Both are always visible so a returning user doesn't have to click through "Open Privacy Settings" again to reach "Quit and Reopen."
+
+**Prompt:** Definitive "Restart Required" Messaging + Quit-and-Reopen Button for Screen Recording Permission. Step 1: update denied-state copy to unconditionally state that restart is required after granting permission. Show both "Open Privacy Settings" and "Quit and Reopen Smidgeon" buttons always together when denied. Step 2: implement relaunch_app Tauri command using AppHandle::restart() (built into Tauri v2 core, no plugin needed). Wire "Quit and Reopen Smidgeon" button to invoke it. Step 3: verify Settings panel is genuinely unreachable during an active question before concluding no state-preservation is needed.
+
+**Changes:**
+- `apps/tauri-controller/src-tauri/src/lib.rs` — add `relaunch_app` command calling `app.restart()` (tauri::AppHandle built-in, Tauri v2 core); register in invoke_handler
+- `apps/tauri-controller/src/components/ControllerToolbar.tsx` — extract `PERMISSION_DENIED_MSG` constant with clear restart-required copy; update `checkPermission` and `handleScreenshotsToggle` denied paths to use it; replace single "Open Privacy Settings" button with a `flex-col` div showing both "Open Privacy Settings" and "Quit and Reopen Smidgeon" always together when `permStatus === 'denied'`
+
 ## 2026-06-19 — Replace ad-hoc debug_log with tauri-plugin-log
 
 **Why:** The hand-rolled `debug_log()` function added in the previous session hardcoded `/tmp/smidgeon-debug.log`. `/tmp` does not exist on Windows — the `if let Ok(...)` guard around `OpenOptions::open()` silently swallowed the failure, so the entire logging mechanism would have been a silent no-op on Windows. `tauri-plugin-log` solves this for free: it writes to the correct OS-specific app-data directory on every platform, supports log rotation (so a faculty pilot doesn't accumulate unbounded disk usage), and is the officially supported Tauri logging path. Log files land at `~/Library/Logs/edu.knox.crs.controller/` on macOS and `%LOCALAPPDATA%\edu.knox.crs.controller\logs\` on Windows — a well-known location to direct faculty to when collecting crash reports.

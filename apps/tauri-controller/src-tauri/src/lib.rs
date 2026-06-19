@@ -303,6 +303,20 @@ fn open_screen_recording_settings() -> Result<(), String> {
     }
 }
 
+/// Restart the application — spawns a fresh instance and exits the current one.
+///
+/// Used by the "Quit and Reopen Smidgeon" button in the screen recording
+/// permission recovery UI. macOS screen recording permission grants never
+/// apply to the already-running process; a restart is always required.
+///
+/// app.restart() is built into tauri::AppHandle in Tauri v2 core — no
+/// separate plugin is required.
+#[tauri::command]
+fn relaunch_app(app: tauri::AppHandle) {
+    log::info!("relaunch_app: restarting application at user request");
+    app.restart();
+}
+
 /// Returns whether the current platform and OS version support screenshot capture.
 ///
 /// On macOS, requires macOS 14.0+ (Sonoma). scap's ScreenCaptureKit backend
@@ -383,6 +397,7 @@ pub fn run() {
             check_screen_recording_permission,
             open_screen_recording_settings,
             supports_screenshot_capture,
+            relaunch_app,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
