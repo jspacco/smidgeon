@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '@crs/ui'
 import type { Course } from '@crs/types'
 import { supabase } from '../lib/supabase'
-import { signOut } from '../lib/auth'
 import { useSession } from '../hooks/useSession'
 
 function generateJoinCode(): string {
@@ -214,24 +213,8 @@ export function CoursesPage() {
     }
   }
 
-  async function handleSignOut() {
-    await signOut()
-    navigate('/login')
-  }
-
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Smidgeon Dashboard</h1>
-          <p className="text-sm text-gray-500">{user?.email}</p>
-        </div>
-        <Button variant="ghost" size="sm" onClick={handleSignOut}>
-          Sign out
-        </Button>
-      </header>
-
       <main className="max-w-5xl mx-auto px-6 py-8 flex flex-col gap-8">
         {/* Courses list */}
         <section aria-labelledby="courses-heading">

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { LogicalSize } from '@tauri-apps/api/dpi'
+import { invoke } from '@tauri-apps/api/core'
 import { CountUpTimer, QRCode, ReconnectingIndicator } from '@crs/ui'
 import { IconChartBar, IconDoorExit, IconGripVertical } from '@tabler/icons-react'
 import type { Course, CRSSession, CRSQuestion, QuestionType } from '@crs/types'
@@ -9,6 +10,17 @@ interface AppSettings {
   optionCount: number
   multiAnswer: boolean
   screenshotsOn: boolean
+  selectedDisplayId: number | null
+}
+
+interface DisplayInfo {
+  id: number
+  x: number
+  y: number
+  width: number
+  height: number
+  scale_factor: number
+  is_primary: boolean
 }
 
 export interface ControllerToolbarProps {
@@ -39,6 +51,12 @@ const TYPE_LABELS: Record<QuestionType, string> = {
 
 const ALL_TYPES: QuestionType[] = ['MCQ_SINGLE', 'MCQ_MULTI', 'FREE_RESPONSE']
 
+// Detect macOS at runtime — used to show/hide the permission check UI.
+const IS_MACOS =
+  typeof navigator !== 'undefined' &&
+  (navigator.platform.includes('Mac') || navigator.userAgent.includes('Macintosh'))
+
+
 export function ControllerToolbar({
   session,
   course,
@@ -60,15 +78,124 @@ export function ControllerToolbar({
 }: ControllerToolbarProps) {
   const [showSettings, setShowSettings] = useState(false)
 
-  // Resize the Tauri window to reveal the settings panel when open
+  // Display enumeration
+  const [displays, setDisplays] = useState<DisplayInfo[]>([])
+
+  // Permission check state (local to the settings panel)
+  type PermStatus = 'idle' | 'checking' | 'granted' | 'denied'
+  const [permStatus, setPermStatus] = useState<PermStatus>('idle')
+  const [permMsg, setPermMsg] = useState<string | null>(null)
+
+  // Whether the current OS version supports screenshots (macOS 14+ required).
+  // Default true to avoid a flash of disabled state before the check resolves.
+  const [screenshotSupported, setScreenshotSupported] = useState<boolean>(true)
+
+  // Resize the Tauri window to reveal the settings panel when open.
+  // 460px gives room for display picker + permission UI.
   useEffect(() => {
     const win = getCurrentWindow()
     if (showSettings) {
-      void win.setSize(new LogicalSize(480, 340))
+      void win.setSize(new LogicalSize(480, 460))
+      void loadDisplays()
+      void loadScreenshotSupport()
     } else {
       void win.setSize(new LogicalSize(480, 60))
+      setPermStatus('idle')
+      setPermMsg(null)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showSettings])
+
+  async function loadDisplays() {
+    try {
+      const list = await invoke<DisplayInfo[]>('list_displays')
+      setDisplays(list)
+      // null = auto mode — do NOT force a specific display on load.
+      // Users can pick a specific display manually; auto is the default.
+    } catch (err) {
+      console.error('Failed to list displays:', err)
+    }
+  }
+
+  async function loadScreenshotSupport() {
+    try {
+      const supported = await invoke<boolean>('supports_screenshot_capture')
+      setScreenshotSupported(supported)
+    } catch {
+      // Conservatively disable if we can't determine support.
+      setScreenshotSupported(false)
+    }
+  }
+
+  // Message shown whenever screen recording permission is denied.
+  // Unconditionally states that a restart is required after granting permission —
+  // macOS permission grants never apply to the already-running process for
+  // Screen Recording. This is true without exception (despite Apple's system
+  // dialog hedging with "may require"). Both recovery buttons are always shown
+  // together so a user who already granted permission in a previous attempt can
+  // immediately choose "Quit and Reopen" without clicking "Open Privacy Settings" again.
+  const PERMISSION_DENIED_MSG =
+    'Screen recording permission is required for screenshots. Open System Settings ' +
+    'to grant it if you haven\u2019t yet. After granting permission, you must quit and ' +
+    'reopen Smidgeon \u2014 on macOS, permission grants never apply to the already-running ' +
+    'process, even though System Settings may say this \u201cmay\u201d be required. For ' +
+    'Screen Recording specifically, it always is.'
+
+  /**
+   * Check (and request) screen recording permission via the Rust command.
+   * On macOS, check_screen_recording_permission calls scap::request_permission()
+   * if not already granted, which triggers the OS dialog on the first call.
+   */
+  async function checkPermission() {
+    setPermStatus('checking')
+    setPermMsg(null)
+    try {
+      const result = await invoke<string>('check_screen_recording_permission')
+      if (result === 'granted') {
+        setPermStatus('granted')
+        setPermMsg('Screen recording permission confirmed.')
+      } else {
+        setPermStatus('denied')
+        setPermMsg(PERMISSION_DENIED_MSG)
+      }
+    } catch (err) {
+      setPermStatus('denied')
+      setPermMsg(PERMISSION_DENIED_MSG)
+      console.error('Screen recording permission check failed:', err)
+    }
+  }
+
+  async function handleScreenshotsToggle(newValue: boolean) {
+    if (newValue === true) {
+      // Call check_screen_recording_permission, which internally calls
+      // scap::request_permission() if not already granted — this triggers
+      // the macOS OS dialog on first use. A capture attempt (the previous
+      // approach) bypassed request_permission() entirely, so the dialog
+      // was never shown and the toggle was a dead end.
+      setPermStatus('checking')
+      setPermMsg(null)
+      try {
+        const result = await invoke<string>('check_screen_recording_permission')
+        if (result === 'granted') {
+          setPermStatus('granted')
+          setPermMsg('Screen recording permission confirmed.')
+          onSettingsChange({ ...settings, screenshotsOn: true })
+        } else {
+          setPermStatus('denied')
+          setPermMsg(PERMISSION_DENIED_MSG)
+          // Do NOT flip screenshotsOn to true — leave it off until permission is confirmed.
+        }
+      } catch (err) {
+        setPermStatus('denied')
+        setPermMsg(PERMISSION_DENIED_MSG)
+        console.error('Screen recording permission check failed:', err)
+      }
+    } else {
+      onSettingsChange({ ...settings, screenshotsOn: newValue })
+      setPermStatus('idle')
+      setPermMsg(null)
+    }
+  }
 
   const isActive = currentQuestion?.status === 'ACTIVE'
   const hasQuestion = currentQuestion !== null
@@ -357,37 +484,119 @@ export function ControllerToolbar({
               </div>
             </div>
 
-            {/* Screenshots */}
+            {/* Screenshots on/off */}
             <div>
               <p className="text-xs text-gray-300 mb-2">Screenshots</p>
-              <div className="flex gap-2" role="radiogroup" aria-label="Screenshot capture">
-                {([
-                  { value: true, label: 'On' },
-                  { value: false, label: 'Off' },
-                ] as const).map(({ value, label }) => (
-                  <label
-                    key={label}
-                    className={[
-                      'flex items-center justify-center px-3 h-8 rounded-lg border-2 cursor-pointer text-xs font-medium transition-colors',
-                      settings.screenshotsOn === value
-                        ? 'border-blue-500 bg-blue-600 text-white'
-                        : 'border-gray-600 bg-gray-700 text-gray-300 hover:border-blue-400',
-                    ].join(' ')}
-                  >
-                    <input
-                      type="radio"
-                      name="settings-screenshots"
-                      checked={settings.screenshotsOn === value}
-                      onChange={() => onSettingsChange({ ...settings, screenshotsOn: value })}
-                      className="sr-only"
-                    />
-                    {label}
-                  </label>
-                ))}
-              </div>
+              {IS_MACOS && !screenshotSupported ? (
+                <p className="text-xs text-amber-400">
+                  Screenshots require macOS 14 or later.
+                </p>
+              ) : (
+                <div className="flex gap-2" role="radiogroup" aria-label="Screenshot capture">
+                  {([
+                    { value: true, label: 'On' },
+                    { value: false, label: 'Off' },
+                  ] as const).map(({ value, label }) => (
+                    <label
+                      key={label}
+                      className={[
+                        'flex items-center justify-center px-3 h-8 rounded-lg border-2 cursor-pointer text-xs font-medium transition-colors',
+                        settings.screenshotsOn === value
+                          ? 'border-blue-500 bg-blue-600 text-white'
+                          : 'border-gray-600 bg-gray-700 text-gray-300 hover:border-blue-400',
+                      ].join(' ')}
+                    >
+                      <input
+                        type="radio"
+                        name="settings-screenshots"
+                        checked={settings.screenshotsOn === value}
+                        onChange={() => void handleScreenshotsToggle(value)}
+                        className="sr-only"
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
-          </div>
 
+            {/* Display picker — shown when screenshots is on */}
+            {settings.screenshotsOn && displays.length > 0 && (
+              <div>
+                <label htmlFor="display-picker" className="text-xs text-gray-300 block mb-2">
+                  Capture display
+                </label>
+                <select
+                  id="display-picker"
+                  value={settings.selectedDisplayId ?? 'auto'}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    onSettingsChange({
+                      ...settings,
+                      selectedDisplayId: val === 'auto' ? null : Number(val),
+                    })
+                  }}
+                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-2 py-1.5 text-xs text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="auto">Auto (follow toolbar)</option>
+                  {displays.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.width}×{d.height}
+                      {d.scale_factor !== 1 ? ` @${d.scale_factor}×` : ''}
+                      {d.is_primary ? ' (primary)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* macOS permission check button */}
+            {IS_MACOS && (
+              <div className="space-y-2">
+                <button
+                  onClick={() => void checkPermission()}
+                  disabled={permStatus === 'checking'}
+                  className="w-full text-xs text-gray-300 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg px-3 py-1.5 transition-colors disabled:opacity-50"
+                >
+                  {permStatus === 'checking'
+                    ? 'Checking…'
+                    : 'Check screen recording permission'}
+                </button>
+
+                {permMsg && (
+                  <div
+                    className={[
+                      'text-xs rounded-lg px-3 py-2 space-y-2',
+                      permStatus === 'granted'
+                        ? 'bg-green-900 text-green-200'
+                        : 'bg-amber-900 text-amber-200',
+                    ].join(' ')}
+                    role="status"
+                  >
+                    <p>{permMsg}</p>
+                    {permStatus === 'denied' && (
+                      <div className="flex flex-col gap-1">
+                        <button
+                          type="button"
+                          onClick={() => void invoke('open_screen_recording_settings')}
+                          className="text-left underline text-amber-300 hover:text-white"
+                        >
+                          Open Privacy Settings
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void invoke('relaunch_app')}
+                          className="text-left underline text-amber-300 hover:text-white"
+                        >
+                          Quit and Reopen Smidgeon
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

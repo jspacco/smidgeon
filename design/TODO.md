@@ -27,19 +27,37 @@
 
 ## Student PWA
 * Smidgeon icon rather than the weird clipboard clip art thing
+* handle bad URLs (asdfasdf) at smidgeon.app/asdfasdf
 
 ## Faculty Dashboard
 * Show screenshots linked to questions, once we have screenshots
+* says "Knox College" on splash page
 
 ## Faculty PWA
 * Choose correct answer for MCQ
 
 ## Tauri Controller
+
+### Log file locations (tauri-plugin-log, bundle id: edu.knox.crs.controller)
+If a faculty member experiences a crash or screenshot failure, the log file is at:
+- **macOS**: `~/Library/Logs/edu.knox.crs.controller/`
+- **Windows**: `%LOCALAPPDATA%\edu.knox.crs.controller\logs\`
+- **Linux**: `~/.local/share/edu.knox.crs.controller/logs/`
+
+Up to 5 rotated log files are kept; each file is capped at 5 MB.
+To collect logs: ask faculty to zip that folder and email it.
+
 * Should not say "knox.edu" in the title screen
 * Choose correct answer for MCQ
 * Revote button always exists, but is greyed out when not in use
-* Exit button, or at least an X in the corner
+* Exit button, or at least an X in the corner, that quits but doesn't log out
+* tooltips don't actually work
+* green status update not visible at the bottom
 * Grab and move widget upon launch
+* single / multi does not highlight default
+* screenshot recording setting not saved/remembered
+* names of S3 buckets on supabase are wonky; maybe OK?
+* can't see green saying we have permissions
 * Test on windows
 * **Screenshots**
    - [ ] Auto-capture on question launch when Screenshots=On
