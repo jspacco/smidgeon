@@ -22,6 +22,7 @@ export async function createCourse(
   defaultOptionCount: number,
   ownerId: string,
   defaultMultiAnswer: boolean,
+  defaultScreenshotsOn: boolean,
 ): Promise<Course> {
   const joinCode = generateJoinCode()
   const { data, error } = await supabase
@@ -30,6 +31,7 @@ export async function createCourse(
       name,
       default_option_count: defaultOptionCount,
       default_multi_answer: defaultMultiAnswer,
+      default_screenshots_on: defaultScreenshotsOn,
       owner_id: ownerId,
       join_code: joinCode,
     })

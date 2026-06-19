@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '@crs/ui'
-import type { Course } from '@crs/types'
+import type { Course, User } from '@crs/types'
 import { supabase } from '../lib/supabase'
 import { useSession } from '../hooks/useSession'
 
@@ -44,11 +44,21 @@ export function CoursesPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [loadingCourses, setLoadingCourses] = useState(true)
 
+  // Instructor defaults (users row)
+  const [instructorDefaults, setInstructorDefaults] = useState<User | null>(null)
+  const [editingDefaults, setEditingDefaults] = useState(false)
+  const [defaultOptionCount, setDefaultOptionCount] = useState(5)
+  const [defaultMultiAnswer, setDefaultMultiAnswer] = useState(true)
+  const [defaultScreenshotsOn, setDefaultScreenshotsOn] = useState(false)
+  const [savingDefaults, setSavingDefaults] = useState(false)
+  const [defaultsError, setDefaultsError] = useState<string | null>(null)
+
   // Create-course form state
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [newName, setNewName] = useState('')
   const [newOptionCount, setNewOptionCount] = useState<number>(5)
   const [newMultiAnswer, setNewMultiAnswer] = useState(true)
+  const [newScreenshotsOn, setNewScreenshotsOn] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
 
@@ -65,7 +75,58 @@ export function CoursesPage() {
   useEffect(() => {
     if (!user) return
     loadCourses()
+    loadInstructorDefaults()
   }, [user])
+
+  async function loadInstructorDefaults() {
+    if (!user) return
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', user.id)
+        .single()
+      if (error) throw error
+      const u = data as User
+      setInstructorDefaults(u)
+      setDefaultOptionCount(u.default_option_count)
+      setDefaultMultiAnswer(u.default_multi_answer)
+      setDefaultScreenshotsOn(u.default_screenshots_on)
+      // Pre-fill create-course form with instructor defaults
+      setNewOptionCount(u.default_option_count)
+      setNewMultiAnswer(u.default_multi_answer)
+      setNewScreenshotsOn(u.default_screenshots_on)
+    } catch {
+      // Non-critical — fall back to form defaults
+    }
+  }
+
+  async function handleSaveInstructorDefaults() {
+    if (!user) return
+    setSavingDefaults(true)
+    setDefaultsError(null)
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({
+          default_option_count: defaultOptionCount,
+          default_multi_answer: defaultMultiAnswer,
+          default_screenshots_on: defaultScreenshotsOn,
+        })
+        .eq('id', user.id)
+      if (error) throw error
+      setInstructorDefaults((prev) =>
+        prev
+          ? { ...prev, default_option_count: defaultOptionCount, default_multi_answer: defaultMultiAnswer, default_screenshots_on: defaultScreenshotsOn }
+          : prev,
+      )
+      setEditingDefaults(false)
+    } catch (err) {
+      setDefaultsError(err instanceof Error ? err.message : 'Failed to save defaults.')
+    } finally {
+      setSavingDefaults(false)
+    }
+  }
 
   async function getCourseIds(): Promise<string[]> {
     const { data: enrollments, error: enrollErr } = await supabase
@@ -147,6 +208,7 @@ export function CoursesPage() {
           join_code: joinCode,
           default_option_count: newOptionCount,
           default_multi_answer: newMultiAnswer,
+          default_screenshots_on: newScreenshotsOn,
         })
         .select()
         .single()
@@ -159,9 +221,11 @@ export function CoursesPage() {
       })
       if (enrollErr) throw enrollErr
 
+      // Reset form to instructor defaults
       setNewName('')
-      setNewOptionCount(5)
-      setNewMultiAnswer(true)
+      setNewOptionCount(instructorDefaults?.default_option_count ?? 5)
+      setNewMultiAnswer(instructorDefaults?.default_multi_answer ?? true)
+      setNewScreenshotsOn(instructorDefaults?.default_screenshots_on ?? false)
       setShowCreateForm(false)
       await loadCourses()
       navigate(`/courses/${(courseData as Course).id}`)
@@ -216,6 +280,101 @@ export function CoursesPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <main className="max-w-5xl mx-auto px-6 py-8 flex flex-col gap-8">
+
+        {/* My defaults */}
+        <section aria-labelledby="my-defaults-heading" className="bg-white border border-gray-200 rounded-xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 id="my-defaults-heading" className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+              My defaults
+            </h2>
+            {!editingDefaults && (
+              <button
+                onClick={() => setEditingDefaults(true)}
+                className="text-sm text-blue-600 hover:underline"
+              >
+                Edit
+              </button>
+            )}
+          </div>
+
+          {editingDefaults ? (
+            <div className="flex flex-col gap-4">
+              <div className="flex gap-6 flex-wrap items-end">
+                <div className="flex flex-col gap-1">
+                  <label className="text-sm font-medium text-gray-700">Default MCQ options</label>
+                  <select
+                    value={defaultOptionCount}
+                    onChange={(e) => setDefaultOptionCount(Number(e.target.value))}
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {[2, 3, 4, 5].map((n) => (
+                      <option key={n} value={n}>{n} options</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-sm font-medium text-gray-700">Free response mode</label>
+                  <select
+                    value={defaultMultiAnswer ? 'multiple' : 'single'}
+                    onChange={(e) => setDefaultMultiAnswer(e.target.value === 'multiple')}
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="multiple">Multiple responses</option>
+                    <option value="single">Single response</option>
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-sm font-medium text-gray-700">Screenshots</label>
+                  <select
+                    value={defaultScreenshotsOn ? 'on' : 'off'}
+                    onChange={(e) => setDefaultScreenshotsOn(e.target.value === 'on')}
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="off">Off</option>
+                    <option value="on">On</option>
+                  </select>
+                </div>
+              </div>
+              {defaultsError && (
+                <p role="alert" className="text-sm text-red-600">{defaultsError}</p>
+              )}
+              <div className="flex gap-2">
+                <Button variant="primary" size="sm" onClick={() => void handleSaveInstructorDefaults()} disabled={savingDefaults}>
+                  {savingDefaults ? 'Saving…' : 'Save'}
+                </Button>
+                <Button variant="secondary" size="sm" onClick={() => {
+                  setEditingDefaults(false)
+                  setDefaultsError(null)
+                  if (instructorDefaults) {
+                    setDefaultOptionCount(instructorDefaults.default_option_count)
+                    setDefaultMultiAnswer(instructorDefaults.default_multi_answer)
+                    setDefaultScreenshotsOn(instructorDefaults.default_screenshots_on)
+                  }
+                }}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : instructorDefaults ? (
+            <dl className="flex gap-6 text-sm flex-wrap">
+              <div>
+                <dt className="text-gray-500">MCQ options</dt>
+                <dd className="font-semibold text-gray-900">{instructorDefaults.default_option_count}</dd>
+              </div>
+              <div>
+                <dt className="text-gray-500">Free response</dt>
+                <dd className="font-semibold text-gray-900">{instructorDefaults.default_multi_answer ? 'Multi' : 'Single'}</dd>
+              </div>
+              <div>
+                <dt className="text-gray-500">Screenshots</dt>
+                <dd className="font-semibold text-gray-900">{instructorDefaults.default_screenshots_on ? 'On' : 'Off'}</dd>
+              </div>
+            </dl>
+          ) : (
+            <p className="text-sm text-gray-400">Loading…</p>
+          )}
+        </section>
+
         {/* Courses list */}
         <section aria-labelledby="courses-heading">
           <div className="flex items-center justify-between mb-4">
@@ -233,8 +392,17 @@ export function CoursesPage() {
                 variant="primary"
                 size="sm"
                 onClick={() => {
-                  setShowCreateForm((v) => !v)
-                  setCreateError(null)
+                  if (showCreateForm) {
+                    setShowCreateForm(false)
+                    setCreateError(null)
+                    setNewName('')
+                    setNewOptionCount(instructorDefaults?.default_option_count ?? 5)
+                    setNewMultiAnswer(instructorDefaults?.default_multi_answer ?? true)
+                    setNewScreenshotsOn(instructorDefaults?.default_screenshots_on ?? false)
+                  } else {
+                    setShowCreateForm(true)
+                    setCreateError(null)
+                  }
                 }}
               >
                 {showCreateForm ? 'Cancel' : '+ Create Course'}
@@ -293,6 +461,20 @@ export function CoursesPage() {
                   >
                     <option value="multiple">Multiple responses</option>
                     <option value="single">Single response</option>
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="screenshots-on" className="text-sm font-medium text-gray-700">
+                    Screenshots
+                  </label>
+                  <select
+                    id="screenshots-on"
+                    value={newScreenshotsOn ? 'on' : 'off'}
+                    onChange={(e) => setNewScreenshotsOn(e.target.value === 'on')}
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="off">Off</option>
+                    <option value="on">On</option>
                   </select>
                 </div>
                 <Button type="submit" variant="primary" disabled={creating || !newName.trim()}>

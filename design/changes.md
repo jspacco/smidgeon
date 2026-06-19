@@ -17,6 +17,22 @@
 - `apps/tauri-controller/src/windows/QRWindow.tsx` — add `STUDENT_APP_URL` constant; large QR popup encodes full URL
 - `apps/tauri-controller/src/components/ControllerToolbar.tsx` — add `STUDENT_APP_URL` constant; mini inline QR encodes full URL
 - `apps/tauri-controller/.env.local` — document `VITE_STUDENT_APP_URL` (commented out)
+## 2026-06-18 — Three-tier settings: schema, cascade logic, and UI
+
+**Prompt:** Three-Tier Settings — Schema, Cascade Logic, and UI. Work on a new branch off main (feature/settings-tiers). Tier 1 = instructor defaults (users table), Tier 2 = course defaults (courses table), Tier 3 = per-question overrides (crs_questions — unchanged, already works). Step 1: edit supabase/migrations/001_schema.sql in place (fresh install assumed) — add default_option_count, default_multi_answer, default_screenshots_on to users; add default_screenshots_on to courses; add "users: update own" RLS policy. Step 2: update packages/types/src/database.ts — add 3 fields to User, add default_screenshots_on to Course. Step 3: update createCourse() in both session.ts files to accept and pass defaultScreenshotsOn. Step 4: update App.tsx (tauri-controller) to sync screenshotsOn from course defaults on course select; add handleSaveToCourseDefaults writing optionCount+multiAnswer+screenshotsOn to the course row. Step 5: update ControllerToolbar — add "Apply to: This session | This course" scope toggle; when scope=course, changes to optionCount/multiAnswer immediately persist to the course row; screenshots always persists. Step 6: update faculty-pwa SessionPage equivalently — scope toggle, sync multiAnswer from course on load. Step 7: update faculty-dashboard CoursesPage — add "My defaults" section (reads/writes users row), pre-fill create-course form from those defaults, add default_screenshots_on to form. Step 8: update faculty-dashboard CourseView — add "Course defaults" section in left aside with inline edit.
+
+**Changes:**
+- `supabase/migrations/001_schema.sql` — add `default_option_count`, `default_multi_answer`, `default_screenshots_on` to `users`; add `default_screenshots_on` to `courses`; add `"users: update own"` RLS policy
+- `packages/types/src/database.ts` — add 3 fields to `User` interface; add `default_screenshots_on` to `Course` interface
+- `apps/tauri-controller/src/lib/session.ts` — `createCourse()` now accepts `defaultScreenshotsOn` param and writes it to DB
+- `apps/faculty-pwa/src/lib/session.ts` — same change to `createCourse()`
+- `apps/tauri-controller/src/components/SessionSelector.tsx` — pass `false` as `defaultScreenshotsOn` (simplified create flow; user can edit in CourseView)
+- `apps/faculty-pwa/src/pages/CreateCoursePage.tsx` — same
+- `apps/tauri-controller/src/App.tsx` — sync `screenshotsOn` from `selectedCourse.default_screenshots_on`; add `handleSaveToCourseDefaults` writing course row; pass `onSaveToCourseDefaults` prop to ControllerToolbar
+- `apps/tauri-controller/src/components/ControllerToolbar.tsx` — add `saveScope` state (`session`/`course`); add "Apply to" radio toggle in settings panel; `handleOptionCountChange`/`handleMultiAnswerChange` persist when scope=course; screenshots always persists via `onSaveToCourseDefaults`
+- `apps/faculty-pwa/src/pages/SessionPage.tsx` — add `saveScope` state; sync `multiAnswer` from course on load; add `handleSaveToCourseDefaults`; add scope-aware `handleOptionCountChange`/`handleMultiAnswerChange`; add "Apply to" toggle in settings panel
+- `apps/faculty-dashboard/src/pages/CoursesPage.tsx` — add "My defaults" section reading/writing `users` row; pre-fill create-course form from instructor defaults; add `default_screenshots_on` field to create form
+- `apps/faculty-dashboard/src/pages/CourseView.tsx` — add "Course defaults" section in left aside with inline edit for all three fields
 
 ## 2026-06-19 — Definitive restart-required messaging and quit-and-reopen button for screen recording permission
 

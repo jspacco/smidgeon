@@ -27,7 +27,7 @@ export default function CreateCoursePage() {
     setError(null)
 
     try {
-      const course = await createCourse(trimmed, defaultOptionCount, user.id, defaultMultiAnswer)
+      const course = await createCourse(trimmed, defaultOptionCount, user.id, defaultMultiAnswer, false)
       await enrollInstructor(course.id, user.id)
       navigate(`/courses/${course.id}`)
     } catch (err) {

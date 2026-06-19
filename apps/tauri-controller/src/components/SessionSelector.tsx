@@ -142,7 +142,7 @@ export function SessionSelector({ user, onSessionStarted }: SessionSelectorProps
     setCreating(true)
     setCreateError(null)
     try {
-      const course = await createCourse(createName.trim(), createOptionCount, user.id, createMultiAnswer)
+      const course = await createCourse(createName.trim(), createOptionCount, user.id, createMultiAnswer, false)
       await enrollInstructor(course.id, user.id)
       // Add to list and auto-select
       setCourses((prev) => [course, ...prev])

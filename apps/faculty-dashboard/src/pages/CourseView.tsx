@@ -31,6 +31,14 @@ export function CourseView() {
   const [exportingCourse, setExportingCourse] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
 
+  // Course defaults editing
+  const [editingDefaults, setEditingDefaults] = useState(false)
+  const [editOptionCount, setEditOptionCount] = useState(5)
+  const [editMultiAnswer, setEditMultiAnswer] = useState(true)
+  const [editScreenshotsOn, setEditScreenshotsOn] = useState(false)
+  const [savingDefaults, setSavingDefaults] = useState(false)
+  const [defaultsError, setDefaultsError] = useState<string | null>(null)
+
   useEffect(() => {
     if (!courseId) return
     loadAll(courseId)
@@ -47,7 +55,11 @@ export function CourseView() {
         .eq('id', id)
         .single()
       if (courseErr) throw courseErr
-      setCourse(courseData as Course)
+      const c = courseData as Course
+      setCourse(c)
+      setEditOptionCount(c.default_option_count)
+      setEditMultiAnswer(c.default_multi_answer)
+      setEditScreenshotsOn(c.default_screenshots_on)
 
       // Fetch student enrollments with user info
       const { data: enrollData, error: enrollErr } = await supabase
@@ -122,6 +134,33 @@ export function CourseView() {
       setError(err instanceof Error ? err.message : 'Failed to load course.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleSaveCourseDefaults() {
+    if (!course) return
+    setSavingDefaults(true)
+    setDefaultsError(null)
+    try {
+      const { error } = await supabase
+        .from('courses')
+        .update({
+          default_option_count: editOptionCount,
+          default_multi_answer: editMultiAnswer,
+          default_screenshots_on: editScreenshotsOn,
+        })
+        .eq('id', course.id)
+      if (error) throw error
+      setCourse((c) =>
+        c
+          ? { ...c, default_option_count: editOptionCount, default_multi_answer: editMultiAnswer, default_screenshots_on: editScreenshotsOn }
+          : c,
+      )
+      setEditingDefaults(false)
+    } catch (err) {
+      setDefaultsError(err instanceof Error ? err.message : 'Failed to save course defaults.')
+    } finally {
+      setSavingDefaults(false)
     }
   }
 
@@ -202,6 +241,110 @@ export function CourseView() {
               {course.join_code}
             </span>
             <p className="text-xs text-gray-400">Students enter this at the student app</p>
+          </section>
+
+          {/* Course defaults */}
+          <section
+            aria-labelledby="course-defaults-heading"
+            className="bg-white border border-gray-200 rounded-xl p-6"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 id="course-defaults-heading" className="text-sm font-medium text-gray-500 uppercase tracking-wide">
+                Course defaults
+              </h2>
+              {!editingDefaults && (
+                <button
+                  onClick={() => setEditingDefaults(true)}
+                  className="text-sm text-blue-600 hover:underline"
+                >
+                  Edit
+                </button>
+              )}
+            </div>
+
+            {editingDefaults ? (
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="cv-option-count" className="text-xs font-medium text-gray-600">MCQ options</label>
+                  <select
+                    id="cv-option-count"
+                    value={editOptionCount}
+                    onChange={(e) => setEditOptionCount(Number(e.target.value))}
+                    className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {[2, 3, 4, 5].map((n) => (
+                      <option key={n} value={n}>{n} options</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="cv-multi-answer" className="text-xs font-medium text-gray-600">Free response</label>
+                  <select
+                    id="cv-multi-answer"
+                    value={editMultiAnswer ? 'multiple' : 'single'}
+                    onChange={(e) => setEditMultiAnswer(e.target.value === 'multiple')}
+                    className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="multiple">Multiple responses</option>
+                    <option value="single">Single response</option>
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="cv-screenshots" className="text-xs font-medium text-gray-600">Screenshots</label>
+                  <select
+                    id="cv-screenshots"
+                    value={editScreenshotsOn ? 'on' : 'off'}
+                    onChange={(e) => setEditScreenshotsOn(e.target.value === 'on')}
+                    className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="off">Off</option>
+                    <option value="on">On</option>
+                  </select>
+                </div>
+                {defaultsError && (
+                  <p role="alert" className="text-xs text-red-600">{defaultsError}</p>
+                )}
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={() => void handleSaveCourseDefaults()}
+                    disabled={savingDefaults}
+                    className="text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-lg disabled:opacity-50"
+                  >
+                    {savingDefaults ? 'Saving…' : 'Save'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEditingDefaults(false)
+                      setDefaultsError(null)
+                      if (course) {
+                        setEditOptionCount(course.default_option_count)
+                        setEditMultiAnswer(course.default_multi_answer)
+                        setEditScreenshotsOn(course.default_screenshots_on)
+                      }
+                    }}
+                    disabled={savingDefaults}
+                    className="text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <dl className="flex flex-col gap-2 text-sm">
+                <div className="flex justify-between">
+                  <dt className="text-gray-500">MCQ options</dt>
+                  <dd className="font-semibold text-gray-900">{course.default_option_count}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-gray-500">Free response</dt>
+                  <dd className="font-semibold text-gray-900">{course.default_multi_answer ? 'Multi' : 'Single'}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-gray-500">Screenshots</dt>
+                  <dd className="font-semibold text-gray-900">{course.default_screenshots_on ? 'On' : 'Off'}</dd>
+                </div>
+              </dl>
+            )}
           </section>
 
           {/* Student roster */}

@@ -27,12 +27,15 @@
 
 -- Users (mirrors Supabase Auth; row created automatically via trigger below)
 CREATE TABLE public.users (
-  id         uuid        PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  email      text        NOT NULL,
-  name       text        NOT NULL,
-  theme      text        NOT NULL DEFAULT 'clean' CHECK (theme IN ('clean', 'terminal')),
-  accent     text        NOT NULL DEFAULT '#06B6D4',
-  created_at timestamptz DEFAULT now()
+  id                    uuid        PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  email                 text        NOT NULL,
+  name                  text        NOT NULL,
+  theme                 text        NOT NULL DEFAULT 'clean' CHECK (theme IN ('clean', 'terminal')),
+  accent                text        NOT NULL DEFAULT '#06B6D4',
+  default_option_count  integer     NOT NULL DEFAULT 5,
+  default_multi_answer  boolean     NOT NULL DEFAULT true,
+  default_screenshots_on boolean    NOT NULL DEFAULT false,
+  created_at            timestamptz DEFAULT now()
 );
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 
@@ -44,6 +47,7 @@ CREATE TABLE public.courses (
   join_code             text        NOT NULL UNIQUE,
   default_option_count  integer     NOT NULL DEFAULT 5,
   default_multi_answer  boolean     NOT NULL DEFAULT true,
+  default_screenshots_on boolean    NOT NULL DEFAULT false,
   archived_at           timestamptz DEFAULT NULL,
   created_at            timestamptz DEFAULT now(),
   institution_id        uuid,
@@ -235,6 +239,9 @@ CREATE POLICY "users: read own" ON public.users
 
 CREATE POLICY "users: insert own" ON public.users
   FOR INSERT WITH CHECK (id = auth.uid());
+
+CREATE POLICY "users: update own" ON public.users
+  FOR UPDATE USING (id = auth.uid());
 
 -- ---- courses ----
 CREATE POLICY "courses: any auth insert" ON public.courses

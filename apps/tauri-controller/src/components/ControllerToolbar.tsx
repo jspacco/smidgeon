@@ -33,6 +33,7 @@ export interface ControllerToolbarProps {
   onTypeChange: (t: QuestionType) => void
   settings: AppSettings
   onSettingsChange: (s: AppSettings) => void
+  onSaveToCourseDefaults: (optionCount: number, multiAnswer: boolean, screenshotsOn: boolean) => void
   onLaunch: () => void
   onStop: () => void
   onRevote: () => void
@@ -73,6 +74,7 @@ export function ControllerToolbar({
   onTypeChange,
   settings,
   onSettingsChange,
+  onSaveToCourseDefaults,
   onLaunch,
   onStop,
   onRevote,
@@ -83,6 +85,9 @@ export function ControllerToolbar({
   resultsVisible,
 }: ControllerToolbarProps) {
   const [showSettings, setShowSettings] = useState(false)
+
+  // Scope toggle: 'session' = ephemeral only; 'course' = persist to course row on change
+  const [saveScope, setSaveScope] = useState<'session' | 'course'>('session')
 
   // Display enumeration
   const [displays, setDisplays] = useState<DisplayInfo[]>([])
@@ -171,6 +176,8 @@ export function ControllerToolbar({
     }
   }
 
+  // Screenshots always persists to the course row (no scope choice — there is no
+  // per-question screenshots override in crs_questions).
   async function handleScreenshotsToggle(newValue: boolean) {
     if (newValue === true) {
       // Call check_screen_recording_permission, which internally calls
@@ -185,7 +192,9 @@ export function ControllerToolbar({
         if (result === 'granted') {
           setPermStatus('granted')
           setPermMsg('Screen recording permission confirmed.')
-          onSettingsChange({ ...settings, screenshotsOn: true })
+          const next = { ...settings, screenshotsOn: true }
+          onSettingsChange(next)
+          onSaveToCourseDefaults(next.optionCount, next.multiAnswer, true)
         } else {
           setPermStatus('denied')
           setPermMsg(PERMISSION_DENIED_MSG)
@@ -197,9 +206,27 @@ export function ControllerToolbar({
         console.error('Screen recording permission check failed:', err)
       }
     } else {
-      onSettingsChange({ ...settings, screenshotsOn: newValue })
+      const next = { ...settings, screenshotsOn: false }
+      onSettingsChange(next)
+      onSaveToCourseDefaults(next.optionCount, next.multiAnswer, false)
       setPermStatus('idle')
       setPermMsg(null)
+    }
+  }
+
+  function handleOptionCountChange(n: number) {
+    const next = { ...settings, optionCount: n }
+    onSettingsChange(next)
+    if (saveScope === 'course') {
+      onSaveToCourseDefaults(n, next.multiAnswer, next.screenshotsOn)
+    }
+  }
+
+  function handleMultiAnswerChange(value: boolean) {
+    const next = { ...settings, multiAnswer: value }
+    onSettingsChange(next)
+    if (saveScope === 'course') {
+      onSaveToCourseDefaults(next.optionCount, value, next.screenshotsOn)
     }
   }
 
@@ -428,6 +455,36 @@ export function ControllerToolbar({
               Question settings
             </p>
 
+            {/* Apply to scope toggle */}
+            <div>
+              <p className="text-xs text-gray-300 mb-2">Apply to</p>
+              <div className="flex gap-2" role="radiogroup" aria-label="Settings scope">
+                {([
+                  { value: 'session', label: 'This session' },
+                  { value: 'course', label: 'This course' },
+                ] as const).map(({ value, label }) => (
+                  <label
+                    key={value}
+                    className={[
+                      'flex items-center justify-center px-3 h-8 rounded-lg border-2 cursor-pointer text-xs font-medium transition-colors',
+                      saveScope === value
+                        ? 'border-blue-500 bg-blue-600 text-white'
+                        : 'border-gray-600 bg-gray-700 text-gray-300 hover:border-blue-400',
+                    ].join(' ')}
+                  >
+                    <input
+                      type="radio"
+                      name="settings-scope"
+                      checked={saveScope === value}
+                      onChange={() => setSaveScope(value)}
+                      className="sr-only"
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </div>
+
             {/* MCQ option count */}
             <div>
               <p className="text-xs text-gray-300 mb-2">MCQ options</p>
@@ -451,7 +508,7 @@ export function ControllerToolbar({
                       name="settings-option-count"
                       value={n}
                       checked={settings.optionCount === n}
-                      onChange={() => onSettingsChange({ ...settings, optionCount: n })}
+                      onChange={() => handleOptionCountChange(n)}
                       className="sr-only"
                     />
                     {n}
@@ -481,7 +538,7 @@ export function ControllerToolbar({
                       type="radio"
                       name="settings-multi-answer"
                       checked={settings.multiAnswer === value}
-                      onChange={() => onSettingsChange({ ...settings, multiAnswer: value })}
+                      onChange={() => handleMultiAnswerChange(value)}
                       className="sr-only"
                     />
                     {label}

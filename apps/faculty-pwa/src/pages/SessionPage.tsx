@@ -71,6 +71,7 @@ export default function SessionPage() {
   const [questionType, setQuestionType] = useState<QuestionType>('MCQ_SINGLE')
   const [settings, setSettings] = useState<Settings>({ optionCount: 5, multiAnswer: false })
   const [showSettings, setShowSettings] = useState(false)
+  const [saveScope, setSaveScope] = useState<'session' | 'course'>('session')
   const [showRevoteButton, setShowRevoteButton] = useState(false)
   const [resultsVisible, setResultsVisibleState] = useState(false)
   const [showFullscreenQR, setShowFullscreenQR] = useState(false)
@@ -132,7 +133,7 @@ export default function SessionPage() {
         const c = courseData as Course
         setCourse(c)
         setSession(sessionData as CRSSession)
-        setSettings((prev) => ({ ...prev, optionCount: c.default_option_count }))
+        setSettings({ optionCount: c.default_option_count, multiAnswer: c.default_multi_answer })
       } catch (err) {
         setLoadError(err instanceof Error ? err.message : 'Failed to load session')
       }
@@ -204,6 +205,35 @@ export default function SessionPage() {
     } finally {
       setMarkingPresent(null)
     }
+  }
+
+  async function handleSaveToCourseDefaults(optionCount: number, multiAnswer: boolean) {
+    if (!courseId || !course) return
+    try {
+      const { error } = await supabase
+        .from('courses')
+        .update({ default_option_count: optionCount, default_multi_answer: multiAnswer })
+        .eq('id', courseId)
+      if (error) throw error
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to save course defaults')
+    }
+  }
+
+  function handleOptionCountChange(n: number) {
+    setSettings((s) => {
+      const next = { ...s, optionCount: n }
+      if (saveScope === 'course') void handleSaveToCourseDefaults(n, next.multiAnswer)
+      return next
+    })
+  }
+
+  function handleMultiAnswerChange(value: boolean) {
+    setSettings((s) => {
+      const next = { ...s, multiAnswer: value }
+      if (saveScope === 'course') void handleSaveToCourseDefaults(next.optionCount, value)
+      return next
+    })
   }
 
   async function handleLaunch() {
@@ -432,6 +462,35 @@ export default function SessionPage() {
             </p>
 
             <div className="mb-3">
+              <p className="text-sm font-medium text-gray-700 mb-2">Apply to</p>
+              <div className="flex gap-2" role="radiogroup" aria-label="Settings scope">
+                {([
+                  { value: 'session', label: 'This session' },
+                  { value: 'course', label: 'This course' },
+                ] as const).map(({ value, label }) => (
+                  <label
+                    key={value}
+                    className={[
+                      'flex items-center justify-center px-4 h-9 rounded-lg border-2 cursor-pointer text-sm font-medium transition-colors',
+                      saveScope === value
+                        ? 'border-blue-600 bg-blue-600 text-white'
+                        : 'border-gray-300 bg-white text-gray-700 hover:border-blue-400',
+                    ].join(' ')}
+                  >
+                    <input
+                      type="radio"
+                      name="settings-scope"
+                      checked={saveScope === value}
+                      onChange={() => setSaveScope(value)}
+                      className="sr-only"
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="mb-3">
               <p className="text-sm font-medium text-gray-700 mb-2">MCQ option count</p>
               <div className="flex gap-2" role="radiogroup" aria-label="MCQ option count">
                 {([2, 3, 4, 5] as const).map((n) => (
@@ -449,7 +508,7 @@ export default function SessionPage() {
                       name="settings-option-count"
                       value={n}
                       checked={settings.optionCount === n}
-                      onChange={() => setSettings((s) => ({ ...s, optionCount: n }))}
+                      onChange={() => handleOptionCountChange(n)}
                       className="sr-only"
                     />
                     {n}
@@ -478,7 +537,7 @@ export default function SessionPage() {
                       type="radio"
                       name="multi-answer"
                       checked={settings.multiAnswer === value}
-                      onChange={() => setSettings((s) => ({ ...s, multiAnswer: value }))}
+                      onChange={() => handleMultiAnswerChange(value)}
                       className="sr-only"
                     />
                     {label}
