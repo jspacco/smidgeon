@@ -128,53 +128,59 @@ export function ControllerToolbar({
   }
 
   /**
-   * Run a test capture to probe permission.
-   * Uses capture_controller_display (auto mode) or capture_display (specific id).
-   * On macOS this triggers the system permission dialog on first call.
+   * Check (and request) screen recording permission via the Rust command.
+   * On macOS, check_screen_recording_permission calls scap::request_permission()
+   * if not already granted, which triggers the OS dialog on the first call.
    */
   async function checkPermission() {
     setPermStatus('checking')
     setPermMsg(null)
     try {
-      if (settings.selectedDisplayId === null) {
-        await invoke('capture_controller_display')
+      const result = await invoke<string>('check_screen_recording_permission')
+      if (result === 'granted') {
+        setPermStatus('granted')
+        setPermMsg('Screen recording permission confirmed.')
       } else {
-        await invoke('capture_display', { displayId: settings.selectedDisplayId })
+        setPermStatus('denied')
+        setPermMsg(
+          'Screen recording permission denied. macOS only prompts once — ' +
+            'enable it manually in Privacy Settings.',
+        )
       }
-      setPermStatus('granted')
-      setPermMsg('Screen recording permission confirmed.')
     } catch (err) {
       setPermStatus('denied')
-      setPermMsg(
-        'Screen recording permission denied. macOS asks only once — ' +
-          'enable it manually in Privacy Settings.',
-      )
+      setPermMsg('Permission check failed. Enable screen recording in Privacy Settings.')
       console.error('Screen recording permission check failed:', err)
     }
   }
 
   async function handleScreenshotsToggle(newValue: boolean) {
     if (newValue === true) {
-      // Immediately attempt a test capture to trigger (or confirm) macOS permission.
+      // Call check_screen_recording_permission, which internally calls
+      // scap::request_permission() if not already granted — this triggers
+      // the macOS OS dialog on first use. A capture attempt (the previous
+      // approach) bypassed request_permission() entirely, so the dialog
+      // was never shown and the toggle was a dead end.
       setPermStatus('checking')
       setPermMsg(null)
       try {
-        if (settings.selectedDisplayId === null) {
-          await invoke('capture_controller_display')
+        const result = await invoke<string>('check_screen_recording_permission')
+        if (result === 'granted') {
+          setPermStatus('granted')
+          setPermMsg('Screen recording permission confirmed.')
+          onSettingsChange({ ...settings, screenshotsOn: true })
         } else {
-          await invoke('capture_display', { displayId: settings.selectedDisplayId })
+          setPermStatus('denied')
+          setPermMsg(
+            'Screen recording permission denied. macOS only prompts once — ' +
+              'enable it manually in Privacy Settings.',
+          )
+          // Do NOT flip screenshotsOn to true — leave it off until permission is confirmed.
         }
-        setPermStatus('granted')
-        setPermMsg('Screen recording permission confirmed.')
-        onSettingsChange({ ...settings, screenshotsOn: true })
       } catch (err) {
         setPermStatus('denied')
-        setPermMsg(
-          'Screen recording permission denied. macOS asks only once — ' +
-            'enable it manually in Privacy Settings.',
-        )
-        console.error('Screen recording permission denied:', err)
-        // Do NOT flip screenshotsOn to true — leave it off until permission is confirmed.
+        setPermMsg('Permission check failed. Enable screen recording in Privacy Settings.')
+        console.error('Screen recording permission check failed:', err)
       }
     } else {
       onSettingsChange({ ...settings, screenshotsOn: newValue })

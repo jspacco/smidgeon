@@ -1,5 +1,15 @@
 # Changes
 
+## 2026-06-18 — Fix screenshot permission UI dead-end; add file-based debug logging
+
+**Why:** Two problems needed fixing together. (1) The Screenshots "On" toggle was a dead end when permission was denied: `handleScreenshotsToggle` was calling `capture_controller_display` to test permission, but that Rust command has `if !scap::has_permission() { return Err(...) }` — it never calls `scap::request_permission()`, so the OS permission dialog was never triggered and the toggle just silently failed. The "Open Privacy Settings" button rendered correctly in the denied state but since the errors from `void invoke(...)` are silently swallowed, if the Rust command failed for any reason it was invisible. (2) All debug output used `eprintln!`, which is invisible when testing the built `.app` bundle (no terminal attached); `cargo tauri dev` is not a real bundle and macOS doesn't reliably show TCC prompts to non-bundled binaries, so the built app is the only real test environment.
+
+**Prompt:** Fix Screenshot Permission UI Dead-End and Add File-Based Debug Logging. Part 1: add `debug_log` helper writing to `/tmp/smidgeon-debug.log` and call it at entry/exit of `capture_display_impl`, `capture_controller_display`, `list_displays`, `check_screen_recording_permission`, and `open_screen_recording_settings`. Keep existing `eprintln!` calls in addition to `debug_log`. Part 2: fix `handleScreenshotsToggle` to call `check_screen_recording_permission` (which internally calls `scap::request_permission()`) instead of attempting a real capture; if "granted" flip the toggle on, if "denied" show inline message with "Open Privacy Settings" button. Fix `checkPermission` the same way for consistency. Part 3: add `debug_log` as literally the first line of `open_screen_recording_settings` to verify invocation independent of TCC state.
+
+**Changes:**
+- `apps/tauri-controller/src-tauri/src/lib.rs` — add `debug_log` function writing timestamped entries to `/tmp/smidgeon-debug.log`; add `debug_log` calls at entry and exit of `capture_display_impl`, `list_displays`, `capture_controller_display`, `check_screen_recording_permission`, and `open_screen_recording_settings` (first line of `open_screen_recording_settings` per Part 3); keep all existing `eprintln!` calls
+- `apps/tauri-controller/src/components/ControllerToolbar.tsx` — rewrite `handleScreenshotsToggle` and `checkPermission` to call `invoke<string>('check_screen_recording_permission')` instead of a capture attempt; this routes through `scap::request_permission()` and actually triggers the OS dialog; "denied" path shows inline message and the existing "Open Privacy Settings" button wired to `invoke('open_screen_recording_settings')`
+
 ## 2026-06-17 — Complete scap migration for screenshot capture
 
 **Prompt:** finish the scap migration and get scap working for screen capture

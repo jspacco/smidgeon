@@ -4,6 +4,29 @@ use std::io::Cursor;
 use scap::capturer::{get_output_frame_size as scap_frame_size, Options as ScapOptions, Resolution};
 
 // ---------------------------------------------------------------------------
+// File-based debug logging — visible when testing the built .app bundle
+// (eprintln! output is not accessible without a terminal; this writes to
+// /tmp/smidgeon-debug.log so Spacco can `tail -f /tmp/smidgeon-debug.log`
+// while testing the built app without a terminal attached).
+// ---------------------------------------------------------------------------
+
+fn debug_log(msg: &str) {
+    use std::fs::OpenOptions;
+    use std::io::Write;
+    if let Ok(mut file) = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("/tmp/smidgeon-debug.log")
+    {
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+        let _ = writeln!(file, "[{timestamp}] {msg}");
+    }
+}
+
+// ---------------------------------------------------------------------------
 // OAuth command (existing)
 // ---------------------------------------------------------------------------
 
@@ -59,6 +82,13 @@ fn display_options(target: scap::Target) -> ScapOptions {
 
 /// Capture the display identified by `display_id` and return a base64-encoded JPEG.
 fn capture_display_impl(display_id: u32) -> Result<String, String> {
+    let perm = scap::has_permission();
+    debug_log(&format!("capture_display_impl: entry display_id={display_id} has_permission={perm}"));
+    eprintln!("[smidgeon] capture_display_impl: entry display_id={display_id} has_permission={perm}");
+    if !perm {
+        debug_log("capture_display_impl: permission denied — returning error");
+        return Err("screen_recording_permission_denied".to_string());
+    }
     use scap::capturer::Capturer;
     use scap::frame::{Frame, VideoFrame};
 
@@ -112,6 +142,7 @@ fn capture_display_impl(display_id: u32) -> Result<String, String> {
         "[smidgeon] capture_display_impl: JPEG size={} bytes",
         jpeg_bytes.len()
     );
+    debug_log(&format!("capture_display_impl: success JPEG={} bytes", jpeg_bytes.len()));
 
     Ok(STANDARD.encode(&jpeg_bytes))
 }
@@ -131,6 +162,13 @@ fn capture_display_impl(display_id: u32) -> Result<String, String> {
 /// scale), so the frontend display picker shows correct native resolution.
 #[tauri::command]
 fn list_displays() -> Result<Vec<DisplayInfo>, String> {
+    let perm = scap::has_permission();
+    debug_log(&format!("list_displays: entry has_permission={perm}"));
+    eprintln!("[smidgeon] list_displays: entry has_permission={perm}");
+    if !perm {
+        debug_log("list_displays: permission denied — returning error");
+        return Err("screen_recording_permission_denied".to_string());
+    }
     let main_display = scap::get_main_display();
     let targets = scap::get_all_targets();
 
@@ -155,6 +193,7 @@ fn list_displays() -> Result<Vec<DisplayInfo>, String> {
             });
         }
     }
+    debug_log(&format!("list_displays: success count={}", displays.len()));
     Ok(displays)
 }
 
@@ -174,6 +213,13 @@ fn capture_display(display_id: u32) -> Result<String, String> {
 /// the primary display if no match is found.
 #[tauri::command]
 async fn capture_controller_display(app: tauri::AppHandle) -> Result<String, String> {
+    let perm = scap::has_permission();
+    debug_log(&format!("capture_controller_display: entry has_permission={perm}"));
+    eprintln!("[smidgeon] capture_controller_display: entry has_permission={perm}");
+    if !perm {
+        debug_log("capture_controller_display: permission denied — returning error");
+        return Err("screen_recording_permission_denied".to_string());
+    }
     use tauri::Manager;
 
     let targets = scap::get_all_targets();
@@ -223,12 +269,14 @@ async fn capture_controller_display(app: tauri::AppHandle) -> Result<String, Str
                             "[smidgeon] capture_controller_display: matched display id={}",
                             d.id
                         );
+                        debug_log(&format!("capture_controller_display: matched display id={}", d.id));
                         d.id
                     }
                     _ => {
                         eprintln!(
                             "[smidgeon] capture_controller_display: no match, using primary"
                         );
+                        debug_log("capture_controller_display: no display match, falling back to primary");
                         scap::get_main_display().id
                     }
                 }
@@ -236,6 +284,7 @@ async fn capture_controller_display(app: tauri::AppHandle) -> Result<String, Str
         }
     };
 
+    debug_log(&format!("capture_controller_display: delegating to capture_display_impl display_id={display_id}"));
     capture_display_impl(display_id)
 }
 
@@ -248,11 +297,20 @@ async fn capture_controller_display(app: tauri::AppHandle) -> Result<String, Str
 /// returns true unconditionally on Windows).
 #[tauri::command]
 fn check_screen_recording_permission() -> String {
-    if scap::has_permission() {
+    let perm = scap::has_permission();
+    debug_log(&format!("check_screen_recording_permission: entry has_permission={perm}"));
+    eprintln!("[smidgeon] check_screen_recording_permission: entry has_permission={perm}");
+    if perm {
+        debug_log("check_screen_recording_permission: already granted, returning 'granted'");
         return "granted".to_string();
     }
+    debug_log("check_screen_recording_permission: calling scap::request_permission()");
+    eprintln!("[smidgeon] check_screen_recording_permission: about to call request_permission");
     // Trigger the OS permission dialog; returns whether permission was granted.
-    if scap::request_permission() {
+    let granted = scap::request_permission();
+    debug_log(&format!("check_screen_recording_permission: request_permission() returned {granted}"));
+    eprintln!("[smidgeon] check_screen_recording_permission: request_permission returned {granted}");
+    if granted {
         "granted".to_string()
     } else {
         "denied".to_string()
@@ -263,18 +321,24 @@ fn check_screen_recording_permission() -> String {
 /// No-op on non-macOS platforms.
 #[tauri::command]
 fn open_screen_recording_settings() -> Result<(), String> {
+    debug_log("open_screen_recording_settings: entry"); // Part 3: first line to confirm invocation
+    eprintln!("[smidgeon] open_screen_recording_settings: entry");
     #[cfg(target_os = "macos")]
     {
-        std::process::Command::new("open")
+        let result = std::process::Command::new("open")
             .arg(
                 "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture",
             )
             .spawn()
             .map(|_| ())
-            .map_err(|e| e.to_string())
+            .map_err(|e| e.to_string());
+        debug_log(&format!("open_screen_recording_settings: spawn result ok={}", result.is_ok()));
+        eprintln!("[smidgeon] open_screen_recording_settings: spawn result ok={}", result.is_ok());
+        result
     }
     #[cfg(not(target_os = "macos"))]
     {
+        debug_log("open_screen_recording_settings: non-macOS no-op");
         Ok(())
     }
 }
