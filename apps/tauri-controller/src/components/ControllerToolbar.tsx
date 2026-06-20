@@ -101,16 +101,28 @@ export function ControllerToolbar({
   // Default true to avoid a flash of disabled state before the check resolves.
   const [screenshotSupported, setScreenshotSupported] = useState<boolean>(true)
 
-  // Resize the Tauri window to reveal the settings panel when open.
-  // 460px gives room for display picker + permission UI.
+  // Resize the Tauri window based on settings-open state AND permission status.
+  // 460px: settings open, no permission banner.
+  // 560px: settings open + permission denied banner (message + 2 recovery buttons).
+  // 60px:  settings closed (normal toolbar height).
   useEffect(() => {
     const win = getCurrentWindow()
-    if (showSettings) {
+    if (!showSettings) {
+      void win.setSize(new LogicalSize(480, 60))
+    } else if (permStatus === 'denied') {
+      void win.setSize(new LogicalSize(480, 560))
+    } else {
       void win.setSize(new LogicalSize(480, 460))
+    }
+  }, [showSettings, permStatus])
+
+  // Load display list + screenshot OS support check when settings opens.
+  // Reset permission state when settings closes.
+  useEffect(() => {
+    if (showSettings) {
       void loadDisplays()
       void loadScreenshotSupport()
     } else {
-      void win.setSize(new LogicalSize(480, 60))
       setPermStatus('idle')
       setPermMsg(null)
     }
@@ -432,12 +444,6 @@ export function ControllerToolbar({
           <div className="space-y-1">
             <p className="text-xs text-gray-400">
               Course: <span className="text-gray-100 font-medium">{course.name}</span>
-            </p>
-            <p className="text-xs text-gray-400">
-              Join:{' '}
-              <span className="text-gray-100 font-mono font-bold tracking-widest">
-                {course.join_code}
-              </span>
             </p>
             <p className="text-xs text-gray-400">
               Session code:{' '}

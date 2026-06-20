@@ -1,5 +1,14 @@
 # Changes
 
+## 2026-06-20 — Settings panel polish: layout overflow, remove stale join code, verify screenshots default
+
+**Why:** Three small cleanup items after merging screenshots and settings-tiers branches. (1) The permission-denied banner (message + two recovery buttons) that appears in the Settings panel when screen recording is denied was clipped below the window edge — the 460px window height only accounted for the normal panel content, not the banner. Dynamically resizing to 560px when denied fixes it without introducing a scroll mechanism inconsistent with how the rest of the panel works. (2) "Join: {course.join_code}" was still shown in the live-session Settings panel. The join code is used once at course setup time so students self-enroll; during a live session the relevant identifiers are the QR code and the 6-digit session_code (both shown elsewhere). Showing the join code in the session panel is dead UI that could confuse faculty. (3) Confirming all three `default_screenshots_on` locations default to false — screenshots requires explicit macOS Screen Recording permission and must never be on by default.
+
+**Prompt:** Toolbar Settings Panel Polish (post-merge cleanup on main). Fix 1: Settings panel layout/overflow when error banner is shown — investigate and fix so the panel content fits the permission denied banner (message + 2 buttons) without being clipped, following the existing window-resizing approach. Fix 2: Remove unused "Join: {course.join_code}" line from the live-session Settings panel in ControllerToolbar — do NOT remove join_code from schema or Dashboard CourseView. Fix 3: Verify default_screenshots_on defaults to false in all three locations (users table, courses table, frontend useState). Report which locations exist and their values.
+
+**Changes:**
+- `apps/tauri-controller/src/components/ControllerToolbar.tsx` — split the single window-sizing+data-loading useEffect into two: (a) sizing effect watches `[showSettings, permStatus]` and sets 60/460/560px; (b) data-loading effect watches `[showSettings]` as before; remove "Join: {course.join_code}" from the course info section
+
 ## 2026-06-19 — QR codes encode full join URL for stock camera app compatibility
 
 **Why:** The qr_token previously encoded in QR codes was a bare UUID. A bare UUID is not actionable by a stock camera app — the phone's Camera shows nothing useful. Only students who already had the student-pwa open and used the in-app QRScanner could benefit. A brand-new student scanning for the first time (the overwhelmingly common first-time experience) had no path in. The fix encodes a full URL — `https://smidgeon.app/join?token={uuid}` — so any phone's camera recognises it as a link, opens it in the browser, and lands the student directly on the join flow. The token remains a UUID in the database; only what gets encoded visually in the QR image changes. The domain is configurable via VITE_STUDENT_APP_URL for self-hosters.
