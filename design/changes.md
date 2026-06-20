@@ -1,5 +1,17 @@
 # Changes
 
+## 2026-06-20 — Tauri toolbar UI cleanup: settings panel layout, tooltips, vote count, quit button
+
+**Why:** Six accumulated UI issues in the Tauri toolbar: (1) settings panel was a narrow floating absolute card that felt disconnected; (2) session code was displayed in the settings panel but served no purpose there; (3) the session dropdown showed "— new session —" with em-dashes that truncated in the narrow select; (4) no Quit app button existed — users had to right-click the Dock icon; (5) CSS tooltips were positioned above the toolbar, which sits at the top of the screen, putting them off-screen; (6) "0 voted" during idle was redundant noise.
+
+**Prompt:** Tauri Toolbar Comprehensive UI Cleanup. Fix 1: Settings panel — replace the narrow floating absolute card with a full-width inline panel below the toolbar row, two side-by-side rows (Apply to + Screenshots; MCQ options + Free response). Fix 2: Remove Session code display from the settings panel. Fix 3: Change "— new session —" dropdown label to "New session". Fix 4: Add Quit app button (IconPower) using Tauri's AppHandle::exit(0). Fix 5: Tooltip direction — show below, not above. Fix 6: "0 voted" → "0" when count is zero.
+
+**Changes:**
+- `apps/tauri-controller/src/components/ControllerToolbar.tsx` — replace narrow floating settings card with full-width inline panel; two side-by-side rows; remove session code; vote count shows bare "0" when zero; adjust window heights to 300/420px
+- `apps/tauri-controller/src/index.css` — change tooltip positioning from above (`bottom: calc(100% + 6px)`) to below (`top: calc(100% + 6px)`)
+- `apps/tauri-controller/src/components/SessionSelector.tsx` — rename "— new session —" to "New session"; add `quit_app` invoke; add Quit button (IconPower) next to Logout
+- `apps/tauri-controller/src-tauri/src/lib.rs` — add `quit_app` command calling `app.exit(0)`; register in invoke_handler
+
 ## 2026-06-20 — Remove stale back-to-course link from student session page
 
 **Why:** The "← Live session" back button navigated to `/courses/{courseId}`, a student course view that no longer exists. Students have no course home page in the current design — they join sessions directly via QR/code and stay on the session page until the session ends.

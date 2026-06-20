@@ -303,6 +303,16 @@ fn open_screen_recording_settings() -> Result<(), String> {
     }
 }
 
+/// Quit the application immediately.
+///
+/// app.exit(0) is built into tauri::AppHandle in Tauri v2 core — no
+/// separate plugin is required.
+#[tauri::command]
+fn quit_app(app: tauri::AppHandle) {
+    log::info!("quit_app: exiting application at user request");
+    app.exit(0);
+}
+
 /// Restart the application — spawns a fresh instance and exits the current one.
 ///
 /// Used by the "Quit and Reopen Smidgeon" button in the screen recording
@@ -398,6 +408,7 @@ pub fn run() {
             open_screen_recording_settings,
             supports_screenshot_capture,
             relaunch_app,
+            quit_app,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

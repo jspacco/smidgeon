@@ -102,17 +102,19 @@ export function ControllerToolbar({
   const [screenshotSupported, setScreenshotSupported] = useState<boolean>(true)
 
   // Resize the Tauri window based on settings-open state AND permission status.
-  // 460px: settings open, no permission banner.
-  // 560px: settings open + permission denied banner (message + 2 recovery buttons).
+  // Full-width horizontal layout is much denser than the old narrow card, so
+  // the panel needs far less vertical height.
+  // 300px: settings open, no permission banner.
+  // 420px: settings open + permission denied banner (long message + 2 buttons).
   // 60px:  settings closed (normal toolbar height).
   useEffect(() => {
     const win = getCurrentWindow()
     if (!showSettings) {
       void win.setSize(new LogicalSize(480, 60))
     } else if (permStatus === 'denied') {
-      void win.setSize(new LogicalSize(480, 560))
+      void win.setSize(new LogicalSize(480, 420))
     } else {
-      void win.setSize(new LogicalSize(480, 460))
+      void win.setSize(new LogicalSize(480, 300))
     }
   }, [showSettings, permStatus])
 
@@ -361,14 +363,14 @@ export function ControllerToolbar({
           </span>
         </div>
 
-        {/* Vote count */}
+        {/* Vote count — "0" when zero (bare), "{n} voted" when nonzero */}
         <div
           data-tauri-drag-region
           className="shrink-0 text-sm font-semibold text-gray-200 whitespace-nowrap px-2"
           aria-live="polite"
-          aria-label={`${respondentCount} voted`}
+          aria-label={respondentCount > 0 ? `${respondentCount} voted` : '0'}
         >
-          {respondentCount} voted
+          {respondentCount > 0 ? `${respondentCount} voted` : '0'}
         </div>
 
         {/* Results toggle */}
@@ -433,46 +435,32 @@ export function ControllerToolbar({
         </span>
       </div>
 
-      {/* Settings panel — floats below the toolbar */}
+      {/* Settings panel — full-width panel below the toolbar */}
       {showSettings && !isActive && (
         <div
-          className="absolute right-0 top-full mt-1 w-72 bg-gray-800 border border-gray-600 rounded-xl shadow-2xl p-4 space-y-4 z-50"
+          className="bg-gray-800 border-t border-gray-700 px-4 py-3 space-y-3"
           role="region"
           aria-label="Session settings"
         >
-          {/* Course + session info */}
-          <div className="space-y-1">
-            <p className="text-xs text-gray-400">
-              Course: <span className="text-gray-100 font-medium">{course.name}</span>
-            </p>
-            <p className="text-xs text-gray-400">
-              Session code:{' '}
-              <span className="text-gray-100 font-mono font-bold tracking-widest">
-                {session.session_code}
-              </span>
-            </p>
-          </div>
+          {/* Course name */}
+          <p className="text-xs text-gray-400">
+            Course: <span className="text-gray-100 font-medium">{course.name}</span>
+          </p>
 
-          <hr className="border-gray-600" />
-
-          {/* Question settings */}
-          <div className="space-y-3">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
-              Question settings
-            </p>
-
-            {/* Apply to scope toggle */}
+          {/* Row 1: Apply to (scope) + Screenshots — meta/config settings */}
+          <div className="flex items-start justify-between">
+            {/* Apply to */}
             <div>
-              <p className="text-xs text-gray-300 mb-2">Apply to</p>
-              <div className="flex gap-2" role="radiogroup" aria-label="Settings scope">
+              <p className="text-xs text-gray-400 mb-1.5">Apply to</p>
+              <div className="flex gap-1.5" role="radiogroup" aria-label="Settings scope">
                 {([
-                  { value: 'session', label: 'This session' },
-                  { value: 'course', label: 'This course' },
+                  { value: 'session', label: 'Session' },
+                  { value: 'course', label: 'Course' },
                 ] as const).map(({ value, label }) => (
                   <label
                     key={value}
                     className={[
-                      'flex items-center justify-center px-3 h-8 rounded-lg border-2 cursor-pointer text-xs font-medium transition-colors',
+                      'flex items-center justify-center px-3 h-7 rounded-lg border-2 cursor-pointer text-xs font-medium transition-colors',
                       saveScope === value
                         ? 'border-blue-500 bg-blue-600 text-white'
                         : 'border-gray-600 bg-gray-700 text-gray-300 hover:border-blue-400',
@@ -491,19 +479,52 @@ export function ControllerToolbar({
               </div>
             </div>
 
-            {/* MCQ option count */}
+            {/* Screenshots */}
             <div>
-              <p className="text-xs text-gray-300 mb-2">MCQ options</p>
-              <div
-                className="flex gap-2"
-                role="radiogroup"
-                aria-label="MCQ option count"
-              >
+              <p className="text-xs text-gray-400 mb-1.5">Screenshots</p>
+              {IS_MACOS && !screenshotSupported ? (
+                <p className="text-xs text-amber-400">Requires macOS 14+</p>
+              ) : (
+                <div className="flex gap-1.5" role="radiogroup" aria-label="Screenshot capture">
+                  {([
+                    { value: true, label: 'On' },
+                    { value: false, label: 'Off' },
+                  ] as const).map(({ value, label }) => (
+                    <label
+                      key={label}
+                      className={[
+                        'flex items-center justify-center px-3 h-7 rounded-lg border-2 cursor-pointer text-xs font-medium transition-colors',
+                        settings.screenshotsOn === value
+                          ? 'border-blue-500 bg-blue-600 text-white'
+                          : 'border-gray-600 bg-gray-700 text-gray-300 hover:border-blue-400',
+                      ].join(' ')}
+                    >
+                      <input
+                        type="radio"
+                        name="settings-screenshots"
+                        checked={settings.screenshotsOn === value}
+                        onChange={() => void handleScreenshotsToggle(value)}
+                        className="sr-only"
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Row 2: MCQ options + Free response — question launch settings */}
+          <div className="flex items-start justify-between">
+            {/* MCQ options */}
+            <div>
+              <p className="text-xs text-gray-400 mb-1.5">MCQ options</p>
+              <div className="flex gap-1.5" role="radiogroup" aria-label="MCQ option count">
                 {([2, 3, 4, 5] as const).map((n) => (
                   <label
                     key={n}
                     className={[
-                      'flex items-center justify-center w-9 h-9 rounded-lg border-2 cursor-pointer font-semibold text-sm transition-colors',
+                      'flex items-center justify-center w-8 h-7 rounded-lg border-2 cursor-pointer font-semibold text-xs transition-colors',
                       settings.optionCount === n
                         ? 'border-blue-500 bg-blue-600 text-white'
                         : 'border-gray-600 bg-gray-700 text-gray-300 hover:border-blue-400',
@@ -523,10 +544,10 @@ export function ControllerToolbar({
               </div>
             </div>
 
-            {/* Free response multi-answer */}
+            {/* Free response */}
             <div>
-              <p className="text-xs text-gray-300 mb-2">Free response</p>
-              <div className="flex gap-2" role="radiogroup" aria-label="Free response submission mode">
+              <p className="text-xs text-gray-400 mb-1.5">Free response</p>
+              <div className="flex gap-1.5" role="radiogroup" aria-label="Free response submission mode">
                 {([
                   { value: false, label: 'Single' },
                   { value: true, label: 'Multi' },
@@ -534,7 +555,7 @@ export function ControllerToolbar({
                   <label
                     key={label}
                     className={[
-                      'flex items-center justify-center px-3 h-8 rounded-lg border-2 cursor-pointer text-xs font-medium transition-colors',
+                      'flex items-center justify-center px-3 h-7 rounded-lg border-2 cursor-pointer text-xs font-medium transition-colors',
                       settings.multiAnswer === value
                         ? 'border-blue-500 bg-blue-600 text-white'
                         : 'border-gray-600 bg-gray-700 text-gray-300 hover:border-blue-400',
@@ -552,120 +573,80 @@ export function ControllerToolbar({
                 ))}
               </div>
             </div>
+          </div>
 
-            {/* Screenshots on/off */}
+          {/* Display picker — full width, only when screenshots on */}
+          {settings.screenshotsOn && displays.length > 0 && (
             <div>
-              <p className="text-xs text-gray-300 mb-2">Screenshots</p>
-              {IS_MACOS && !screenshotSupported ? (
-                <p className="text-xs text-amber-400">
-                  Screenshots require macOS 14 or later.
-                </p>
-              ) : (
-                <div className="flex gap-2" role="radiogroup" aria-label="Screenshot capture">
-                  {([
-                    { value: true, label: 'On' },
-                    { value: false, label: 'Off' },
-                  ] as const).map(({ value, label }) => (
-                    <label
-                      key={label}
-                      className={[
-                        'flex items-center justify-center px-3 h-8 rounded-lg border-2 cursor-pointer text-xs font-medium transition-colors',
-                        settings.screenshotsOn === value
-                          ? 'border-blue-500 bg-blue-600 text-white'
-                          : 'border-gray-600 bg-gray-700 text-gray-300 hover:border-blue-400',
-                      ].join(' ')}
-                    >
-                      <input
-                        type="radio"
-                        name="settings-screenshots"
-                        checked={settings.screenshotsOn === value}
-                        onChange={() => void handleScreenshotsToggle(value)}
-                        className="sr-only"
-                      />
-                      {label}
-                    </label>
-                  ))}
+              <label htmlFor="display-picker" className="text-xs text-gray-400 block mb-1.5">
+                Capture display
+              </label>
+              <select
+                id="display-picker"
+                value={settings.selectedDisplayId ?? 'auto'}
+                onChange={(e) => {
+                  const val = e.target.value
+                  onSettingsChange({
+                    ...settings,
+                    selectedDisplayId: val === 'auto' ? null : Number(val),
+                  })
+                }}
+                className="w-full bg-gray-700 border border-gray-600 rounded-lg px-2 py-1.5 text-xs text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              >
+                <option value="auto">Auto (follow toolbar)</option>
+                {displays.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.width}×{d.height}
+                    {d.scale_factor !== 1 ? ` @${d.scale_factor}×` : ''}
+                    {d.is_primary ? ' (primary)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* macOS permission check button */}
+          {IS_MACOS && (
+            <div className="space-y-2">
+              <button
+                onClick={() => void checkPermission()}
+                disabled={permStatus === 'checking'}
+                className="w-full text-xs text-gray-300 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg px-3 py-1.5 transition-colors disabled:opacity-50"
+              >
+                {permStatus === 'checking' ? 'Checking…' : 'Check screen recording permission'}
+              </button>
+
+              {permMsg && (
+                <div
+                  className={[
+                    'text-xs rounded-lg px-3 py-2 space-y-2',
+                    permStatus === 'granted' ? 'bg-green-900 text-green-200' : 'bg-amber-900 text-amber-200',
+                  ].join(' ')}
+                  role="status"
+                >
+                  <p>{permMsg}</p>
+                  {permStatus === 'denied' && (
+                    <div className="flex flex-col gap-1">
+                      <button
+                        type="button"
+                        onClick={() => void invoke('open_screen_recording_settings')}
+                        className="text-left underline text-amber-300 hover:text-white"
+                      >
+                        Open Privacy Settings
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void invoke('relaunch_app')}
+                        className="text-left underline text-amber-300 hover:text-white"
+                      >
+                        Quit and Reopen Smidgeon
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-
-            {/* Display picker — shown when screenshots is on */}
-            {settings.screenshotsOn && displays.length > 0 && (
-              <div>
-                <label htmlFor="display-picker" className="text-xs text-gray-300 block mb-2">
-                  Capture display
-                </label>
-                <select
-                  id="display-picker"
-                  value={settings.selectedDisplayId ?? 'auto'}
-                  onChange={(e) => {
-                    const val = e.target.value
-                    onSettingsChange({
-                      ...settings,
-                      selectedDisplayId: val === 'auto' ? null : Number(val),
-                    })
-                  }}
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-2 py-1.5 text-xs text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                >
-                  <option value="auto">Auto (follow toolbar)</option>
-                  {displays.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.width}×{d.height}
-                      {d.scale_factor !== 1 ? ` @${d.scale_factor}×` : ''}
-                      {d.is_primary ? ' (primary)' : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* macOS permission check button */}
-            {IS_MACOS && (
-              <div className="space-y-2">
-                <button
-                  onClick={() => void checkPermission()}
-                  disabled={permStatus === 'checking'}
-                  className="w-full text-xs text-gray-300 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg px-3 py-1.5 transition-colors disabled:opacity-50"
-                >
-                  {permStatus === 'checking'
-                    ? 'Checking…'
-                    : 'Check screen recording permission'}
-                </button>
-
-                {permMsg && (
-                  <div
-                    className={[
-                      'text-xs rounded-lg px-3 py-2 space-y-2',
-                      permStatus === 'granted'
-                        ? 'bg-green-900 text-green-200'
-                        : 'bg-amber-900 text-amber-200',
-                    ].join(' ')}
-                    role="status"
-                  >
-                    <p>{permMsg}</p>
-                    {permStatus === 'denied' && (
-                      <div className="flex flex-col gap-1">
-                        <button
-                          type="button"
-                          onClick={() => void invoke('open_screen_recording_settings')}
-                          className="text-left underline text-amber-300 hover:text-white"
-                        >
-                          Open Privacy Settings
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void invoke('relaunch_app')}
-                          className="text-left underline text-amber-300 hover:text-white"
-                        >
-                          Quit and Reopen Smidgeon
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+          )}
         </div>
       )}
     </div>

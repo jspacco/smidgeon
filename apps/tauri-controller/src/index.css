@@ -9,7 +9,11 @@ body {
   -webkit-user-select: none;
 }
 
-/* CSS tooltips — shown above the element on hover */
+/* CSS tooltips — shown BELOW the element on hover.
+   The toolbar sits at the top of the screen (always-on-top), so showing
+   tooltips above would put them off-screen. "below" is hardcoded here
+   rather than auto-flip because there is no lightweight pure-CSS flip
+   mechanism and the toolbar position is stable. */
 [data-tooltip] {
   position: relative;
 }
@@ -17,7 +21,7 @@ body {
 [data-tooltip]::before {
   content: attr(data-tooltip);
   position: absolute;
-  bottom: calc(100% + 6px);
+  top: calc(100% + 6px);
   left: 50%;
   transform: translateX(-50%);
   white-space: nowrap;

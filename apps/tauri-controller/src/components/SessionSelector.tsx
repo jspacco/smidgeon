@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { LogicalSize } from '@tauri-apps/api/dpi'
-import { IconPlayerPlay, IconLogout, IconPlus, IconGripVertical } from '@tabler/icons-react'
+import { IconPlayerPlay, IconLogout, IconPlus, IconGripVertical, IconPower } from '@tabler/icons-react'
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
+import { invoke } from '@tauri-apps/api/core'
 import { supabase } from '../lib/supabase'
 import { startSession, reopenSession, createCourse, enrollInstructor } from '../lib/session'
 import type { User } from '@supabase/supabase-js'
@@ -174,6 +175,10 @@ export function SessionSelector({ user, onSessionStarted }: SessionSelectorProps
     WebviewWindow.getByLabel('results').then((w) => w?.close())
   }
 
+  async function handleQuit() {
+    await invoke('quit_app')
+  }
+
   const iconButtonClass =
     'flex items-center justify-center w-9 h-9 rounded text-gray-400 hover:text-gray-200 ' +
     'hover:bg-gray-700 transition-colors shrink-0'
@@ -247,7 +252,7 @@ export function SessionSelector({ user, onSessionStarted }: SessionSelectorProps
               disabled={joining || sessionsLoading}
               aria-label="Select session"
             >
-              <option value="new">— new session —</option>
+              <option value="new">New session</option>
               {sessions.map((s) => (
                 <option key={s.id} value={s.id}>
                   {formatSessionLabel(s)}
@@ -291,16 +296,24 @@ export function SessionSelector({ user, onSessionStarted }: SessionSelectorProps
         </span>
 
         {/* Logout */}
-        <span title="Sign out">
-          <button
-            onClick={handleLogout}
-            className={iconButtonClass}
-            aria-label="Logout"
-            data-tooltip="Sign out"
-          >
-            <IconLogout size={18} />
-          </button>
-        </span>
+        <button
+          onClick={handleLogout}
+          className={iconButtonClass}
+          aria-label="Sign out"
+          data-tooltip="Sign out"
+        >
+          <IconLogout size={18} />
+        </button>
+
+        {/* Quit */}
+        <button
+          onClick={handleQuit}
+          className={iconButtonClass}
+          aria-label="Quit Smidgeon"
+          data-tooltip="Quit Smidgeon"
+        >
+          <IconPower size={18} />
+        </button>
       </div>
 
       {/* Create course panel */}
