@@ -208,15 +208,6 @@ export default function SessionPage() {
 
       {/* Header */}
       <header className="bg-white border-b border-gray-100 px-4 py-3 flex items-center gap-3 sticky top-0 z-10">
-        <button
-          onClick={() => navigate(`/courses/${courseId ?? ''}`)}
-          aria-label="Back to course"
-          className="text-gray-400 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
         <h1 className="flex-1 text-base font-semibold text-gray-900">Live session</h1>
         {question?.status === 'ACTIVE' && (
           <div className="flex items-center gap-2 text-sm text-gray-500">

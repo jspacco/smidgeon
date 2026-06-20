@@ -1,5 +1,14 @@
 # Changes
 
+## 2026-06-20 — Remove stale back-to-course link from student session page
+
+**Why:** The "← Live session" back button navigated to `/courses/{courseId}`, a student course view that no longer exists. Students have no course home page in the current design — they join sessions directly via QR/code and stay on the session page until the session ends.
+
+**Prompt:** For the student-pwa, remove the "< Live session" link from the top left. This links back to the course, but that's from an older version of the system. There is no "course" view for students anymore.
+
+**Changes:**
+- `apps/student-pwa/src/pages/SessionPage.tsx` — remove back-button `<button>` from the session page header
+
 ## 2026-06-20 — Settings panel polish: layout overflow, remove stale join code, verify screenshots default
 
 **Why:** Three small cleanup items after merging screenshots and settings-tiers branches. (1) The permission-denied banner (message + two recovery buttons) that appears in the Settings panel when screen recording is denied was clipped below the window edge — the 460px window height only accounted for the normal panel content, not the banner. Dynamically resizing to 560px when denied fixes it without introducing a scroll mechanism inconsistent with how the rest of the panel works. (2) "Join: {course.join_code}" was still shown in the live-session Settings panel. The join code is used once at course setup time so students self-enroll; during a live session the relevant identifiers are the QR code and the 6-digit session_code (both shown elsewhere). Showing the join code in the session panel is dead UI that could confuse faculty. (3) Confirming all three `default_screenshots_on` locations default to false — screenshots requires explicit macOS Screen Recording permission and must never be on by default.
