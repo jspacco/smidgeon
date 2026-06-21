@@ -1,5 +1,18 @@
 # Changes
 
+## 2026-06-21 — Test native title-attribute tooltips for small fixed-height toolbar window
+
+**Why:** The toolbar window is fixed at 480×60px. CSS pseudo-element tooltips (`[data-tooltip]::before`) are DOM content rendered inside the webview, so they get hard-clipped by the OS-level window boundary at 60px — no CSS `top`/`bottom` value can escape that. Native browser/OS tooltips (`title` attribute) are drawn by the OS itself and are not constrained to the webview's bounds, making them a candidate to solve the clipping problem entirely. Per the 2026-06-05 changes.md entry, `title` was previously placed on wrapping `<span>` elements (not directly on `<button>`) to work around a known WebKit bug where `title` on `<button>` did not render; however the CSS pseudo-element system replaced it before visibility in the small window was verified. This task tests whether the span+title approach produces visible OS-level tooltips outside the window boundary.
+
+**Prompt:** [full task text: "Task: Try Native title-Attribute Tooltips Instead of CSS Tooltips" — testing whether native OS title tooltips escape the 60px window boundary that clips CSS pseudo-element tooltips; disabled CSS [data-tooltip]::before system; ensured all icon buttons have wrapping span+title; built release .app for user to test visually]
+
+**Changes:**
+- `apps/tauri-controller/src/index.css` — disabled CSS `[data-tooltip]::before` / `:hover::before` rules (commented out) so only native `title` attributes are active; comment explains restoration path if native tooltips fail
+- `apps/tauri-controller/src/components/SessionSelector.tsx` — wrapped bare Logout and Quit buttons in `<span title>` to match the pattern used in ControllerToolbar (all icon-only buttons now have span+title+aria-label)
+- `apps/tauri-controller/src/components/ControllerToolbar.tsx` — fixed results-toggle `data-tooltip` to be conditional (`resultsVisible ? 'Hide...' : 'Show...'`) matching its span's `title`, was previously a static string
+
+**Testing needed:** Open the release-built `.app` bundle and hover over icon buttons to confirm whether native OS tooltips appear below the window boundary. If yes: delete CSS block entirely and remove `data-tooltip` attributes. If no: restore commented-out CSS block.
+
 ## 2026-06-20 — Tauri toolbar UI cleanup: settings panel layout, tooltips, vote count, quit button
 
 **Why:** Six accumulated UI issues in the Tauri toolbar: (1) settings panel was a narrow floating absolute card that felt disconnected; (2) session code was displayed in the settings panel but served no purpose there; (3) the session dropdown showed "— new session —" with em-dashes that truncated in the narrow select; (4) no Quit app button existed — users had to right-click the Dock icon; (5) CSS tooltips were positioned above the toolbar, which sits at the top of the screen, putting them off-screen; (6) "0 voted" during idle was redundant noise.

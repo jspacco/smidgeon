@@ -296,24 +296,28 @@ export function SessionSelector({ user, onSessionStarted }: SessionSelectorProps
         </span>
 
         {/* Logout */}
-        <button
-          onClick={handleLogout}
-          className={iconButtonClass}
-          aria-label="Sign out"
-          data-tooltip="Sign out"
-        >
-          <IconLogout size={18} />
-        </button>
+        <span title="Sign out">
+          <button
+            onClick={handleLogout}
+            className={iconButtonClass}
+            aria-label="Sign out"
+            data-tooltip="Sign out"
+          >
+            <IconLogout size={18} />
+          </button>
+        </span>
 
         {/* Quit */}
-        <button
-          onClick={handleQuit}
-          className={iconButtonClass}
-          aria-label="Quit Smidgeon"
-          data-tooltip="Quit Smidgeon"
-        >
-          <IconPower size={18} />
-        </button>
+        <span title="Quit Smidgeon">
+          <button
+            onClick={handleQuit}
+            className={iconButtonClass}
+            aria-label="Quit Smidgeon"
+            data-tooltip="Quit Smidgeon"
+          >
+            <IconPower size={18} />
+          </button>
+        </span>
       </div>
 
       {/* Create course panel */}

@@ -9,11 +9,13 @@ body {
   -webkit-user-select: none;
 }
 
-/* CSS tooltips — shown BELOW the element on hover.
-   The toolbar sits at the top of the screen (always-on-top), so showing
-   tooltips above would put them off-screen. "below" is hardcoded here
-   rather than auto-flip because there is no lightweight pure-CSS flip
-   mechanism and the toolbar position is stable. */
+/* CSS tooltip system — DISABLED while testing native title-attribute tooltips.
+   The window is 60px tall; CSS pseudo-element tooltips are clipped by the
+   OS-level window boundary regardless of positioning value. Native title
+   tooltips (rendered by the OS, not the webview) may escape the window bounds.
+   If native title tooltips do NOT work, restore this block and choose between
+   Option B (resize window on hover) or Option C (drop tooltips, rely on icons).
+
 [data-tooltip] {
   position: relative;
 }
@@ -42,3 +44,4 @@ body {
 [data-tooltip]:hover::before {
   opacity: 1;
 }
+*/

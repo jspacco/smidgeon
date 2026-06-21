@@ -388,7 +388,7 @@ export function ControllerToolbar({
             ].join(' ')}
             aria-label={resultsVisible ? 'Hide results from students' : 'Show results to students'}
             aria-pressed={resultsVisible}
-            data-tooltip="Show results to students"
+            data-tooltip={resultsVisible ? 'Hide results from students' : 'Show results to students'}
           >
             <IconChartBar size={18} stroke={2} aria-hidden="true" />
           </button>
