@@ -1,5 +1,34 @@
 # Changes
 
+## 2026-08-31 — QR codes encode full join URL for stock camera app compatibility
+
+**Why:** The qr_token previously encoded in session QR codes was a bare UUID, which only worked for students with the student-pwa open who scanned using the in-app QRScanner. A brand-new student pointing their phone's stock Camera app at the QR code would get a useless UUID. The fix encodes a full configurable URL with the token as a query parameter (`https://{student-app-domain}/join?token={qr_token}`). In this task, we complete the defensive URL-parsing on the second consumer/inline scanner component `QRScanPage.tsx`, making the entire app resilient to both the old-format bare UUIDs and the new full join URLs.
+
+**Prompt:**
+# Task: QR Codes Must Work With Stock Camera Apps, Not Just the In-App Scanner
+
+Work on a new branch off main, e.g. feature/qr-as-url.
+
+## Why this change is being made
+
+The qr_token currently encoded in session QR codes is a bare UUID, not a URL...
+
+## The fix
+
+Change what gets encoded in the QR code from a bare UUID to a full URL with
+the token as a query parameter...
+
+## Steps
+Step 1: Add a /join route to student-pwa
+Step 2: Make the QR-encoded URL's domain configurable
+Step 3: Update the in-app QRScanner to parse a URL instead of a bare token
+Step 4: 6-digit session code path is unaffected
+Step 5: Verify both faculty-side QR displays
+
+**Changes:**
+- `apps/student-pwa/src/pages/QRScanPage.tsx` — Updated `handleScan` to handle URL-shaped scanned strings defensively, extracting the token query param or falling back to a bare UUID.
+- `apps/student-pwa/.env.local` — Documented `VITE_STUDENT_APP_URL` env var (commented out) for complete cross-app consistency.
+
 ## 2026-06-21 — Test native title-attribute tooltips for small fixed-height toolbar window
 
 **Why:** The toolbar window is fixed at 480×60px. CSS pseudo-element tooltips (`[data-tooltip]::before`) are DOM content rendered inside the webview, so they get hard-clipped by the OS-level window boundary at 60px — no CSS `top`/`bottom` value can escape that. Native browser/OS tooltips (`title` attribute) are drawn by the OS itself and are not constrained to the webview's bounds, making them a candidate to solve the clipping problem entirely. Per the 2026-06-05 changes.md entry, `title` was previously placed on wrapping `<span>` elements (not directly on `<button>`) to work around a known WebKit bug where `title` on `<button>` did not render; however the CSS pseudo-element system replaced it before visibility in the small window was verified. This task tests whether the span+title approach produces visible OS-level tooltips outside the window boundary.

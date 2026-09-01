@@ -54,8 +54,20 @@ export default function QRScanPage() {
     }
   }
 
-  async function handleScan(token: string) {
-    await validate({ qr_token: token.trim() })
+  async function handleScan(rawValue: string) {
+    // QR codes now encode a full URL: https://smidgeon.app/join?token=<uuid>
+    // Extract the token query parameter if present; fall back to treating the
+    // entire scanned string as a bare token for backward compatibility with any
+    // cached/printed QR codes from before this change.
+    let token: string
+    try {
+      const url = new URL(rawValue)
+      token = url.searchParams.get('token') ?? rawValue.trim()
+    } catch {
+      // Not a valid URL — old bare-UUID format or manual test value.
+      token = rawValue.trim()
+    }
+    await validate({ qr_token: token })
   }
 
   async function handleCodeSubmit(e: React.FormEvent) {
