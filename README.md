@@ -150,6 +150,7 @@ smidgeon/
   supabase/
     migrations/         SQL schema, applied in order
     functions/          Edge functions
+    seed.sql            Bootstrap account required for new installations
   design/
     design.md           Full design document
     changes.md          Changelog

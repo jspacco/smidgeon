@@ -131,18 +131,27 @@ CREATE TABLE public.session_attendance (
 ALTER TABLE public.session_attendance ENABLE ROW LEVEL SECURITY;
 
 -- Faculty whitelist — read only by the Before User Created auth hook
-CREATE TABLE public.faculty_whitelist (
-  id         uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
-  email      text        NOT NULL UNIQUE,
-  note       text,
-  added_by   text,
-  created_at timestamptz NOT NULL DEFAULT now()
+CREATE TABLE IF NOT EXISTS public.faculty_whitelist (
+  id uuid primary key default gen_random_uuid(),
+  email text not null unique,
+  note text,
+  added_by text,
+  created_at timestamptz not null default now()
 );
--- Not accessible via the normal Supabase client from any app role;
--- only supabase_auth_admin (granted below) can read it.
+
+ALTER TABLE public.faculty_whitelist ENABLE ROW LEVEL SECURITY;
+
+-- Allow supabase_auth_admin to read the whitelist (required for the auth hook)
+CREATE POLICY "supabase_auth_admin can read whitelist"
+ON public.faculty_whitelist
+FOR SELECT
+TO supabase_auth_admin
+USING (true);
+
+-- Lock down all other access
 REVOKE ALL ON public.faculty_whitelist FROM authenticated, anon, public;
-
-
+GRANT SELECT ON public.faculty_whitelist TO supabase_auth_admin;
+GRANT USAGE ON SCHEMA public TO supabase_auth_admin;
 -- ============================================================
 -- 2. INDEXES
 -- ============================================================
@@ -160,6 +169,7 @@ CREATE UNIQUE INDEX one_active_session_per_course
 GRANT USAGE ON SCHEMA public TO authenticated;
 GRANT USAGE ON SCHEMA public TO anon;
 GRANT USAGE ON SCHEMA public TO service_role;
+GRANT USAGE ON SCHEMA public TO supabase_auth_admin;
 
 GRANT ALL ON ALL TABLES    IN SCHEMA public TO authenticated;
 GRANT ALL ON ALL TABLES    IN SCHEMA public TO anon;
@@ -167,7 +177,7 @@ GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon;
 GRANT ALL ON ALL TABLES    IN SCHEMA public TO service_role;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO service_role;
-
+GRANT USAGE ON SCHEMA public TO supabase_auth_admin;
 
 -- ============================================================
 -- 4. HELPER FUNCTIONS AND AUTH TRIGGER
@@ -403,14 +413,17 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.crs_sessions;
 -- ============================================================
 
 INSERT INTO storage.buckets (id, name, public)
-VALUES ('screenshots', 'screenshots', false);
+VALUES ('screenshots', 'screenshots', false)
+ON CONFLICT (id) DO NOTHING;
 
+DROP POLICY IF EXISTS "screenshots: instructor upload" ON storage.objects;
 CREATE POLICY "screenshots: instructor upload" ON storage.objects
   FOR INSERT WITH CHECK (
     bucket_id = 'screenshots'
     AND auth.uid() IS NOT NULL
   );
 
+DROP POLICY IF EXISTS "screenshots: instructor read" ON storage.objects;
 CREATE POLICY "screenshots: instructor read" ON storage.objects
   FOR SELECT USING (
     bucket_id = 'screenshots'
@@ -438,6 +451,7 @@ CREATE POLICY "screenshots: instructor read" ON storage.objects
 CREATE OR REPLACE FUNCTION public.hook_restrict_signup_to_whitelist(event jsonb)
 RETURNS jsonb
 LANGUAGE plpgsql
+SET search_path = public
 AS $$
 DECLARE
   user_email text;
@@ -451,12 +465,11 @@ BEGIN
     RETURN jsonb_build_object(
       'error', jsonb_build_object(
         'http_code', 403,
-        'message',   'This Smidgeon instance is restricted to invited faculty during the pilot. Contact Jaime Spacco to be added.'
+        'message', 'This Smidgeon instance is restricted to invited faculty during the pilot. Contact Jaime Spacco to be added.'
       )
     );
   END IF;
 
-  -- Email is in the whitelist — allow signup to proceed.
   RETURN jsonb_build_object();
 END;
 $$;
@@ -465,11 +478,4 @@ GRANT EXECUTE ON FUNCTION public.hook_restrict_signup_to_whitelist TO supabase_a
 GRANT SELECT  ON public.faculty_whitelist                           TO supabase_auth_admin;
 REVOKE EXECUTE ON FUNCTION public.hook_restrict_signup_to_whitelist FROM authenticated, anon, public;
 
--- Seed initial whitelist entry.
--- VERIFY: update jspacco@knox.edu if this is not the correct address.
--- To add more faculty, run in the Supabase dashboard SQL editor:
---   INSERT INTO public.faculty_whitelist (email, note, added_by)
---   VALUES ('faculty@knox.edu', 'Pilot participant', 'jspacco@knox.edu');
-INSERT INTO public.faculty_whitelist (email, note, added_by)
-VALUES ('jspacco@knox.edu', 'Project owner', 'seed')
-ON CONFLICT (email) DO NOTHING;
+

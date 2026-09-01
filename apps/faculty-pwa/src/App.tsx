@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BrowserRouter, Navigate, Route, Routes, useMatch } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes, useMatch, useLocation } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 import { useSession } from './hooks/useSession'
 import { useActiveSessionRedirect } from './hooks/useActiveSessionRedirect'
@@ -35,6 +35,7 @@ interface ActiveSession {
 
 function RootRedirect() {
   const { user, loading } = useSession()
+  const location = useLocation()
   const [activeSession, setActiveSession] = useState<ActiveSession | null>(null)
   const [sessionChecked, setSessionChecked] = useState(false)
 
@@ -83,6 +84,7 @@ function RootRedirect() {
     return <Navigate to="/courses" replace />
   }
 
+  const errorFromState = (location.state as { error?: string } | null)?.error ?? null
   return <LoginPage />
 }
 

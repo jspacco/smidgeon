@@ -128,3 +128,43 @@ This tells Vercel to install from the monorepo root so
 shared workspace packages (@crs/types, @crs/ui) resolve correctly.
 
 Note that for each Vercel project we configured => Settings => Build and Deployment => "Skip deployments when there are no changes to the root directory or its dependencies." to _Enabled_. So that we don't deploy new Vercel releases for every push to main.
+
+# August fixups
+
+> Test Tauri on Windows — yes, critical. The GitHub Actions Windows build compiles but you've never actually run it on a Windows machine. The screen recording permission flow is macOS-only, but basic login, session control, QR popup, results window all need a real Windows test. You said you'd test at school on a projector machine.
+
+> Faculty whitelist — adding emails is currently raw SQL only, no UI. You add someone via the Supabase dashboard SQL editor: INSERT INTO public.faculty_whitelist (email, note) VALUES ('colleague@knox.edu', 'Fall pilot'); That's it. Works, but it's manual and requires Supabase dashboard access. Fine for a closed alpha with a handful of people, annoying if you need to add 10+ people. Worth verifying the hook actually rejects an unknown email with a clean error message rather than a confusing dead-end.
+
+> Practice creating a new class — yes, and specifically test the full student join flow: create course, start session, scan QR on a real phone with the stock camera app (this is the QR-as-URL fix that's still unfinished in an instruction file but not yet built). This is probably the most important end-to-end test.
+
+> Faculty control panel — not sure exactly what you mean here. The faculty PWA? The Tauri toolbar? Both exist and mostly work. Or do you mean the dashboard specifically?
+
+> QR code for students — the QR-as-URL branch was written up but never given to Weirdo. Currently the QR encodes a bare UUID, which means stock camera apps can't use it. This is a real blocker for first-time students who haven't installed the PWA yet. High priority.
+
+>GRANT USAGE ON SCHEMA public TO supabase_auth_admin permanently added to 001_schema.sql — you fixed this live in SQL but never put it in the migration file. Any fresh self-hosted install hits the same wall you hit. One line fix.
+
+> End-to-end student flow test — you as instructor on laptop/Tauri, yourself or a colleague as student on a phone, actually joining via QR, voting on a question, seeing results. Has this ever been tested with two real devices simultaneously? This is the core loop and worth confirming before any real faculty try it.
+
+> Session code as fallback — related to QR, does typing the 6-digit code on the student landing page actually work and bring a student into the session? This path hasn't been explicitly verified recently.
+
+> CSV export — does it actually produce useful output? Has anyone downloaded and opened one?
+
+> Reopen session — works in the database, but has the UI button been tested?
+
+> Revote — core PI feature, has it been tested end-to-end recently?
+
+> The toolbar-cleanup branch — was mid-way through when you left. The End Session icon choice (flag vs X-circle vs octagon) was unresolved. This branch probably needs to be finished and merged before you let any faculty see the app.
+
+> Student PWA back-link removal — the dead-end < Live session link is still there, confirmed before your trip.
+
+> Faculty PWA join-code page — URL needs to be more prominent, join code display should be removed.
+
+## how to blow up supabase and start over
+> Supabase CLI command to reset the database and remove all data, including the screenshots bucket and its contents. This command will also remove any linked services or configurations associated with the database.
+`supabase db reset --linked`
+
+> in the web interface for supabase, go to the SQL editor and run the following commands to delete the screenshots bucket and its contents:
+```SQL
+DELETE FROM storage.objects WHERE bucket_id = 'screenshots';
+DELETE FROM storage.buckets WHERE id = 'screenshots';
+```

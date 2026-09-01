@@ -1,21 +1,19 @@
 import { useState } from 'react'
-import { useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { Button } from '@crs/ui'
+import { useSearchParams } from 'react-router-dom'
 import logo from '../assets/logo.png'
 
-// When set, restricts sign-in to accounts from this domain (e.g. 'knox.edu').
-// Leave unset or empty to allow any Google account.
 const ALLOWED_DOMAIN = import.meta.env.VITE_ALLOWED_DOMAIN as string | undefined
 
 export default function LoginPage() {
-  const location = useLocation()
+  const [searchParams] = useSearchParams()
+  console.log('LoginPage searchParams error:', searchParams.get('error'))
+
   const [error, setError] = useState<string | null>(
-    (location.state as { error?: string } | null)?.error ?? null
+    searchParams.get('error') ?? null
   )
   const [loading, setLoading] = useState(false)
-
-  // TODO: Microsoft signin
 
   async function handleGoogleSignIn() {
     setError(null)
