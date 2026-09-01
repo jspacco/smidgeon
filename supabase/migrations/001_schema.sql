@@ -465,7 +465,7 @@ BEGIN
     RETURN jsonb_build_object(
       'error', jsonb_build_object(
         'http_code', 403,
-        'message', 'This Smidgeon instance is restricted to invited faculty during the pilot. Contact Jaime Spacco to be added.'
+        'message', 'This Smidgeon instance is restricted to invited faculty during the pilot. Contact Jaime Spacco (jspacco@knox.edu) to be added.'
       )
     );
   END IF;
